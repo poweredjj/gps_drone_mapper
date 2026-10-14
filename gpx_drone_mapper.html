@@ -242,8 +242,9 @@
                     <div>
                         <label class="block text-xs font-medium text-slate-400 mb-1">Resolution (1:1)</label>
                         <select id="exportRes" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                            <option value="720">720 x 720 HD</option>
-                            <option value="1080" selected>1080 x 1080 Full HD</option>
+                            <option value="480">480 x 480 SD</option>
+                            <option value="720" selected>720 x 720 HD</option>
+                            <option value="1080">1080 x 1080 Full HD</option>
                             <option value="1440">1440 x 1440 2K</option>
                             <option value="2160">2160 x 2160 4K</option>
                         </select>
@@ -252,8 +253,8 @@
                         <label class="block text-xs font-medium text-slate-400 mb-1">Framerate</label>
                         <select id="exportFps" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
                             <option value="60">60 FPS (Ultra Smooth)</option>
-                            <option value="30" selected>30 FPS (Standard)</option>
-                            <option value="15">15 FPS</option>
+                            <option value="30">30 FPS (Standard)</option>
+                            <option value="15" selected>15 FPS</option>
                             <option value="10">10 FPS</option>
                             <option value="5">5 FPS</option>
                         </select>
@@ -271,7 +272,7 @@
 
                 <div class="flex items-center gap-3 pt-1">
                     <button onclick="startExport()" id="exportBtn" disabled class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-indigo-600 hover:from-brand-600 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-lg shadow-brand-500/20 transition flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-file-export"></i> Accelerated Fast Video Export
+                        <i class="fa-solid fa-file-export"></i> Export
                     </button>
                 </div>
             </div>
@@ -286,56 +287,56 @@
                 <!-- Leaflet Map Canvas Container -->
                 <div id="map" class="w-full h-full z-10"></div>
 
-                <!-- Draggable Telemetry Overlay HUD Widgets (Default to Large) -->
+                <!-- Draggable Telemetry Overlay HUD Widgets (Static widths to prevent jitter) -->
                 
-                <!-- Speed Widget -->
+                <!-- Speed Widget (Top Left) -->
                 <div id="widgetSpeed" class="hud-widget widget-size-large absolute top-5 left-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
                     <div class="w-10 h-10 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center pointer-events-none">
                         <i class="fa-solid fa-gauge-high"></i>
                     </div>
                     <div class="pointer-events-none">
-                        <p id="hudSpeed" class="text-lg font-bold text-white">0 <span class="text-xs font-normal text-slate-400">km/h</span></p>
+                        <p id="hudSpeed" class="text-lg font-bold text-white min-w-[90px] inline-block">0 <span class="text-xs font-normal text-slate-400">km/h</span></p>
                     </div>
                 </div>
 
-                <!-- Altitude Widget -->
-                <div id="widgetAltitude" class="hud-widget widget-size-large absolute top-28 left-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                <!-- Altitude Widget (Top Right) -->
+                <div id="widgetAltitude" class="hud-widget widget-size-large absolute top-5 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
                     <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center pointer-events-none">
                         <span class="text-xs font-extrabold tracking-tighter">ALT</span>
                     </div>
                     <div class="pointer-events-none">
-                        <p id="hudAltitude" class="text-lg font-bold text-white">0 <span class="text-xs font-normal text-slate-400">m</span></p>
+                        <p id="hudAltitude" class="text-lg font-bold text-white min-w-[85px] inline-block">0 <span class="text-xs font-normal text-slate-400">m</span></p>
                     </div>
                 </div>
 
                 <!-- Flight Time Widget (Disabled by default) -->
-                <div id="widgetTime" style="display: none;" class="hud-widget widget-size-large absolute top-5 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                <div id="widgetTime" style="display: none;" class="hud-widget widget-size-large absolute top-28 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
                     <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center pointer-events-none">
                         <i class="fa-solid fa-stopwatch"></i>
                     </div>
                     <div class="pointer-events-none">
                         <p class="text-[12px] uppercase font-semibold text-slate-400 tracking-wider">Flight Time</p>
-                        <p id="hudTime" class="text-lg font-bold text-white">00:00</p>
+                        <p id="hudTime" class="text-lg font-bold text-white min-w-[80px] inline-block">00:00</p>
                     </div>
                 </div>
 
-                <!-- Total Distance Widget (No header text) -->
-                <div id="widgetDistance" class="hud-widget widget-size-large absolute top-28 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                <!-- Total Distance Widget (Bottom Left) -->
+                <div id="widgetDistance" class="hud-widget widget-size-large absolute bottom-5 left-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
                     <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center pointer-events-none">
                         <i class="fa-solid fa-arrows-rotate"></i>
                     </div>
                     <div class="pointer-events-none">
-                        <p id="hudDistance" class="text-lg font-bold text-white">0.00 <span class="text-xs font-normal text-slate-400">km</span></p>
+                        <p id="hudDistance" class="text-lg font-bold text-white min-w-[100px] inline-block">0.00 <span class="text-xs font-normal text-slate-400">km</span></p>
                     </div>
                 </div>
 
-                <!-- Distance from Home Widget (No header text) -->
-                <div id="widgetHome" class="hud-widget widget-size-large absolute top-52 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                <!-- Distance from Home Widget (Bottom Right) -->
+                <div id="widgetHome" class="hud-widget widget-size-large absolute bottom-5 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
                     <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center pointer-events-none">
                         <i class="fa-solid fa-house"></i>
                     </div>
                     <div class="pointer-events-none">
-                        <p id="hudHomeDist" class="text-lg font-bold text-white">0 <span class="text-xs font-normal text-slate-400">m</span></p>
+                        <p id="hudHomeDist" class="text-lg font-bold text-white min-w-[95px] inline-block">0 <span class="text-xs font-normal text-slate-400">m</span></p>
                     </div>
                 </div>
 
@@ -583,6 +584,7 @@
                     widget.style.left = `${newLeft}px`;
                     widget.style.top = `${newTop}px`;
                     widget.style.right = 'auto';
+                    widget.style.bottom = 'auto';
                 });
 
                 widget.addEventListener('pointerup', (e) => {
@@ -913,7 +915,7 @@
             document.getElementById('timeScrubber').value = timeSec;
             document.getElementById('currentTimeDisplay').textContent = formatTime(timeSec);
 
-            // Rounded integer telemetry values
+            // Telemetry values with static min-widths to prevent jitter
             document.getElementById('hudSpeed').innerHTML = `${Math.round(currPt.speed)} <span class="text-xs font-normal text-slate-400">km/h</span>`;
             document.getElementById('hudAltitude').innerHTML = `${Math.round(currPt.ele)} <span class="text-xs font-normal text-slate-400">m</span>`;
             document.getElementById('hudTime').textContent = formatTime(timeSec);
