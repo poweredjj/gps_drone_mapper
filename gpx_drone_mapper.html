@@ -12,6 +12,9 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   
+  <!-- html2canvas for Video Frame Rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
@@ -25,16 +28,32 @@
     /* Disable Leaflet interaction cursor when locked */
     .map-locked .leaflet-container { cursor: default !important; }
 
-    /* Map Label Size Modifier Classes */
+    /* Geographic Label Size Modifiers */
     .label-size-small .leaflet-tile-container { font-size: 10px !important; }
     .label-size-normal .leaflet-tile-container { font-size: 13px !important; }
     .label-size-large .leaflet-tile-container { font-size: 16px !important; }
+
+    /* Widget Size Modifiers */
+    .widget-size-small .hud-widget { padding: 6px 10px !important; font-size: 11px !important; }
+    .widget-size-small .hud-widget i, .widget-size-small .hud-widget span.font-extrabold { font-size: 12px !important; }
+    .widget-size-small .hud-widget .val-text { font-size: 13px !important; }
+    .widget-size-small .hud-widget .unit-text { font-size: 9px !important; }
+
+    .widget-size-normal .hud-widget { padding: 10px 14px !important; font-size: 13px !important; }
+    .widget-size-normal .hud-widget i, .widget-size-normal .hud-widget span.font-extrabold { font-size: 15px !important; }
+    .widget-size-normal .hud-widget .val-text { font-size: 17px !important; }
+    .widget-size-normal .hud-widget .unit-text { font-size: 10px !important; }
+
+    .widget-size-large .hud-widget { padding: 14px 20px !important; font-size: 16px !important; }
+    .widget-size-large .hud-widget i, .widget-size-large .hud-widget span.font-extrabold { font-size: 20px !important; }
+    .widget-size-large .hud-widget .val-text { font-size: 24px !important; }
+    .widget-size-large .hud-widget .unit-text { font-size: 12px !important; }
   </style>
 </head>
 
 <body class="h-full flex flex-col text-slate-100 font-sans antialiased bg-slate-950 select-none overflow-x-hidden">
 
-  <!-- TOP HEADER -->
+  <!-- TOP HEADER (No Open GPX button) -->
   <header class="h-14 bg-slate-900/90 border-b border-slate-800 px-6 flex items-center justify-between shrink-0 z-30 backdrop-blur-md">
     <div class="flex items-center space-x-3">
       <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30">
@@ -51,12 +70,6 @@
         <i class="fa-solid fa-flask text-indigo-400"></i>
         <span>Sample Flight</span>
       </button>
-
-      <label class="px-3 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-md cursor-pointer transition shadow-sm flex items-center space-x-1.5">
-        <i class="fa-solid fa-file-arrow-up"></i>
-        <span>Open GPX</span>
-        <input type="file" id="gpxInput" accept=".gpx" class="hidden" />
-      </label>
     </div>
   </header>
 
@@ -70,18 +83,19 @@
       <aside class="w-80 lg:w-96 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 overflow-y-auto">
         <div class="p-5 space-y-6">
           
-          <!-- FILE DRAG DROP AREA -->
+          <!-- FILE DRAG DROP & CLICK AREA -->
           <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-800/40 hover:bg-slate-800/80 rounded-xl p-4 text-center transition cursor-pointer">
             <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-400 mb-2"></i>
-            <p class="text-xs font-semibold text-slate-300">Drag & Drop GPX file here</p>
+            <p class="text-xs font-semibold text-slate-300">Click or Drag & Drop GPX file</p>
             <p class="text-[10px] text-slate-500 mt-0.5">Supports 3D telemetry timestamps</p>
+            <input type="file" id="gpxInput" accept=".gpx" class="hidden" />
           </div>
 
-          <!-- SECTION 1: MAP STYLES & LABELS -->
+          <!-- SECTION 1: MAP STYLES & SIZES -->
           <div class="space-y-3">
             <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-2">
               <i class="fa-solid fa-layer-group text-indigo-400"></i>
-              <span>Map Layer & Geography</span>
+              <span>Map Layer & HUD Sizing</span>
             </h2>
 
             <div class="grid grid-cols-2 gap-2 text-xs">
@@ -108,14 +122,11 @@
 
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div>
-                <label class="text-[11px] font-medium text-slate-400 mb-1 block">Names Language</label>
-                <select id="selectLanguage" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 font-medium focus:outline-none focus:border-indigo-500">
-                  <option value="en" selected>English</option>
-                  <option value="local">Native / Local</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="pl">Polish</option>
+                <label class="text-[11px] font-medium text-slate-400 mb-1 block">HUD Widget Size</label>
+                <select id="selectWidgetSize" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 font-medium focus:outline-none focus:border-indigo-500">
+                  <option value="small">Small</option>
+                  <option value="normal" selected>Normal</option>
+                  <option value="large">Large</option>
                 </select>
               </div>
 
@@ -165,13 +176,14 @@
 
             <div class="pt-1">
               <label class="inline-flex items-center space-x-2 cursor-pointer">
-                <input type="checkbox" id="chkShowUnflown" checked class="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-4 h-4" />
+                <!-- Unflown path disabled by default -->
+                <input type="checkbox" id="chkShowUnflown" class="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-4 h-4" />
                 <span class="text-xs text-slate-300 font-medium">Show unflown future route path</span>
               </label>
             </div>
           </div>
 
-          <!-- SECTION 3: TELEMETRY OVERLAYS -->
+          <!-- SECTION 3: TELEMETRY OVERLAYS (Clean: icon, value, unit only) -->
           <div class="space-y-3 pt-2 border-t border-slate-800">
             <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-2">
               <i class="fa-solid fa-sliders text-indigo-400"></i>
@@ -267,48 +279,48 @@
       <!-- RIGHT DISPLAY AREA: 1:1 SQUARE PREVIEW CONTAINER -->
       <main class="flex-1 bg-slate-950 p-6 flex items-center justify-center relative overflow-hidden">
         
-        <!-- 1:1 PREVIEW BOX -->
-        <div id="mapWrapper" class="relative aspect-square w-full max-w-[620px] max-h-[80vh] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-900 group">
+        <!-- 1:1 PREVIEW BOX (Widget Size container class applied) -->
+        <div id="mapWrapper" class="relative aspect-square w-full max-w-[620px] max-h-[80vh] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-900 group widget-size-normal">
           
           <!-- LEAFLET MAP ELEMENT -->
           <div id="map" class="w-full h-full z-0"></div>
 
-          <!-- DRAGGABLE HUD TELEMETRY WIDGETS -->
+          <!-- DRAGGABLE HUD TELEMETRY WIDGETS (Clean: Icon + Value + Unit ONLY) -->
           <div id="hudLayer" class="absolute inset-0 pointer-events-none z-20">
             
             <!-- SPEED WIDGET -->
-            <div id="widgetSpeed" class="hud-widget pointer-events-auto absolute top-4 left-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3 py-2 shadow-xl cursor-move flex items-center space-x-2">
-              <i class="fa-solid fa-gauge-high text-indigo-400 text-sm"></i>
-              <div>
-                <p class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Speed</p>
-                <p class="text-sm font-black font-mono leading-none"><span id="valSpeed">0</span> <span class="text-[10px] font-normal text-slate-400">km/h</span></p>
+            <div id="widgetSpeed" class="hud-widget pointer-events-auto absolute top-4 left-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3.5 py-2.5 shadow-xl cursor-move flex items-center space-x-2.5">
+              <i class="fa-solid fa-gauge-high text-indigo-400 text-base"></i>
+              <div class="flex items-baseline space-x-1">
+                <span id="valSpeed" class="val-text font-black font-mono leading-none text-lg">0</span>
+                <span class="unit-text font-normal text-slate-400 text-xs">km/h</span>
               </div>
             </div>
 
             <!-- ALTITUDE WIDGET -->
-            <div id="widgetAltitude" class="hud-widget pointer-events-auto absolute top-4 right-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3 py-2 shadow-xl cursor-move flex items-center space-x-2">
-              <span class="font-extrabold text-indigo-400 text-xs">ALT</span>
-              <div>
-                <p class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Altitude</p>
-                <p class="text-sm font-black font-mono leading-none"><span id="valAltitude">0</span> <span class="text-[10px] font-normal text-slate-400">m</span></p>
+            <div id="widgetAltitude" class="hud-widget pointer-events-auto absolute top-4 right-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3.5 py-2.5 shadow-xl cursor-move flex items-center space-x-2.5">
+              <span class="font-extrabold text-indigo-400 text-sm">ALT</span>
+              <div class="flex items-baseline space-x-1">
+                <span id="valAltitude" class="val-text font-black font-mono leading-none text-lg">0</span>
+                <span class="unit-text font-normal text-slate-400 text-xs">m</span>
               </div>
             </div>
 
             <!-- TOTAL DISTANCE WIDGET -->
-            <div id="widgetTotalDist" class="hud-widget pointer-events-auto absolute bottom-4 left-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3 py-2 shadow-xl cursor-move flex items-center space-x-2">
-              <i class="fa-solid fa-arrows-rotate text-indigo-400 text-sm"></i>
-              <div>
-                <p class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Distance</p>
-                <p class="text-sm font-black font-mono leading-none"><span id="valTotalDist">0.0</span> <span class="text-[10px] font-normal text-slate-400">km</span></p>
+            <div id="widgetTotalDist" class="hud-widget pointer-events-auto absolute bottom-4 left-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3.5 py-2.5 shadow-xl cursor-move flex items-center space-x-2.5">
+              <i class="fa-solid fa-arrows-rotate text-indigo-400 text-base"></i>
+              <div class="flex items-baseline space-x-1">
+                <span id="valTotalDist" class="val-text font-black font-mono leading-none text-lg">0.0</span>
+                <span class="unit-text font-normal text-slate-400 text-xs">km</span>
               </div>
             </div>
 
             <!-- HOME DISTANCE WIDGET -->
-            <div id="widgetHomeDist" class="hud-widget pointer-events-auto absolute bottom-4 right-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3 py-2 shadow-xl cursor-move flex items-center space-x-2">
-              <i class="fa-solid fa-house text-indigo-400 text-sm"></i>
-              <div>
-                <p class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Home</p>
-                <p class="text-sm font-black font-mono leading-none"><span id="valHomeDist">0</span> <span class="text-[10px] font-normal text-slate-400">m</span></p>
+            <div id="widgetHomeDist" class="hud-widget pointer-events-auto absolute bottom-4 right-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3.5 py-2.5 shadow-xl cursor-move flex items-center space-x-2.5">
+              <i class="fa-solid fa-house text-indigo-400 text-base"></i>
+              <div class="flex items-baseline space-x-1">
+                <span id="valHomeDist" class="val-text font-black font-mono leading-none text-lg">0</span>
+                <span class="unit-text font-normal text-slate-400 text-xs">m</span>
               </div>
             </div>
 
@@ -363,7 +375,7 @@
     let unflownPolyline = null;
     let droneMarker = null;
 
-    let flightPoints = []; // [{lat, lng, ele, time, speed, distFromStart, distFromHome, timeOffset}]
+    let flightPoints = []; 
     let totalFlightTimeSec = 0;
     let currentFlightTimeSec = 0;
 
@@ -429,7 +441,7 @@
         lineJoin: 'round'
       }).addTo(map);
 
-      // Custom Drone SVG Icon without background circle
+      // Custom Drone SVG Icon
       updateDroneIcon(document.getElementById('colorDrone').value, 0);
 
       // Setup Draggable Telemetry Widgets
@@ -452,7 +464,7 @@
     // --- DRONE ARROW MARKER CREATION ---
     function updateDroneIcon(color, heading = 0) {
       const svgIcon = `
-        <div style="transform: rotate(${heading}deg); transition: transform 0.05s linear; width: 32px; h-32px; display: flex; items-center; justify-center;">
+        <div style="transform: rotate(${heading}deg); transition: transform 0.05s linear; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 2L19 21L12 17L5 21L12 2Z" fill="${color}" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
           </svg>
@@ -480,7 +492,7 @@
       const trkpts = xmlDoc.getElementsByTagName("trkpt");
 
       if (!trkpts || trkpts.length < 2) {
-        alert("Invalid GPX file or insufficient track points!");
+        showCustomMessage("Invalid GPX file or insufficient track points!");
         return;
       }
 
@@ -535,12 +547,10 @@
       totalFlightTimeSec = flightPoints[flightPoints.length - 1].timeOffset;
       currentFlightTimeSec = 0;
 
-      // Update UI Limits
       document.getElementById('timelineSlider').max = totalFlightTimeSec;
       document.getElementById('timelineSlider').value = 0;
       document.getElementById('flightDuration').textContent = formatTime(totalFlightTimeSec);
 
-      // Render Initial State
       renderFlightState(0);
     }
 
@@ -563,7 +573,6 @@
       targetTimeSec = Math.max(0, Math.min(targetTimeSec, totalFlightTimeSec));
       currentFlightTimeSec = targetTimeSec;
 
-      // Find interpolated position
       let idx = flightPoints.findIndex(p => p.timeOffset >= targetTimeSec);
       if (idx === -1) idx = flightPoints.length - 1;
       if (idx === 0) idx = 1;
@@ -574,7 +583,6 @@
       const segmentDuration = p2.timeOffset - p1.timeOffset;
       const factor = segmentDuration > 0 ? (targetTimeSec - p1.timeOffset) / segmentDuration : 0;
 
-      // Interpolate Lat / Lng / Alt / Speed
       const curLat = p1.lat + (p2.lat - p1.lat) * factor;
       const curLng = p1.lng + (p2.lng - p1.lng) * factor;
       const curEle = p1.ele + (p2.ele - p1.ele) * factor;
@@ -582,21 +590,17 @@
       const curTotalDist = p1.distFromStart + (p2.distFromStart - p1.distFromStart) * factor;
       const curHomeDist = p1.distFromHome + (p2.distFromHome - p1.distFromHome) * factor;
 
-      // Calculate Bearing for Arrow Rotation
       const heading = calculateBearing(p1.lat, p1.lng, p2.lat, p2.lng);
 
-      // Lock Map Center
       const curLatLng = [curLat, curLng];
       const zoom = parseInt(document.getElementById('selectZoom').value, 10);
       map.setView(curLatLng, zoom, { animate: false });
 
-      // Update Drone Marker
       if (droneMarker) {
         droneMarker.setLatLng(curLatLng);
         updateDroneIcon(document.getElementById('colorDrone').value, heading);
       }
 
-      // Update Flown & Unflown Routes
       const flownCoords = flightPoints.slice(0, idx).map(p => [p.lat, p.lng]);
       flownCoords.push(curLatLng);
       flownPolyline.setLatLngs(flownCoords);
@@ -609,15 +613,11 @@
         unflownPolyline.setLatLngs([]);
       }
 
-      // Update Telemetry Displays (Rounded Integers)
       document.getElementById('valSpeed').textContent = Math.round(curSpeed);
       document.getElementById('valAltitude').textContent = Math.round(curEle);
-      
-      const distKm = (curTotalDist / 1000).toFixed(1);
-      document.getElementById('valTotalDist').textContent = distKm;
+      document.getElementById('valTotalDist').textContent = (curTotalDist / 1000).toFixed(1);
       document.getElementById('valHomeDist').textContent = Math.round(curHomeDist);
 
-      // Update Timeline Controls
       document.getElementById('timelineSlider').value = targetTimeSec;
       document.getElementById('timeCurrent').textContent = formatTime(targetTimeSec);
     }
@@ -782,12 +782,164 @@
       renderFlightState(0);
     }
 
+    // --- FULLY FUNCTIONAL 1:1 VIDEO EXPORTER (html2canvas & MediaRecorder) ---
+    async function startVideoExport() {
+      if (!flightPoints.length) {
+        showCustomMessage("Please load a GPX flight path first!");
+        return;
+      }
+      if (isExporting) return;
+
+      isExporting = true;
+      cancelExportRequested = false;
+      togglePlay(false);
+
+      const fps = parseInt(document.getElementById('exportFps').value, 10);
+      const res = parseInt(document.getElementById('exportRes').value, 10);
+      const bitrate = parseInt(document.getElementById('exportBitrate').value, 10) * 1_000_000;
+
+      const btnExport = document.getElementById('btnExport');
+      const btnCancel = document.getElementById('btnCancelExport');
+      const progressContainer = document.getElementById('exportProgressContainer');
+      const progressBar = document.getElementById('exportProgressBar');
+      const statusText = document.getElementById('exportStatusText');
+      const percentText = document.getElementById('exportPercentText');
+
+      btnExport.disabled = true;
+      btnExport.classList.add('opacity-50', 'cursor-not-allowed');
+      btnCancel.classList.remove('hidden');
+      progressContainer.classList.remove('hidden');
+
+      // Create an offscreen recording canvas
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = res;
+      exportCanvas.height = res;
+      const ctx = exportCanvas.getContext('2d');
+
+      const stream = exportCanvas.captureStream(fps);
+      let mediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp9',
+          videoBitsPerSecond: bitrate
+        });
+      } catch (e) {
+        try {
+          mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        } catch (e2) {
+          mediaRecorder = new MediaRecorder(stream);
+        }
+      }
+
+      const chunks = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        if (!cancelExportRequested && chunks.length > 0) {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `drone-flight-${res}x${res}.webm`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showCustomMessage("Video export completed successfully!");
+        }
+        cleanupExportUI();
+      };
+
+      mediaRecorder.start();
+
+      const mapWrapper = document.getElementById('mapWrapper');
+      const timeStep = 1 / fps;
+      let curTime = 0;
+
+      try {
+        while (curTime <= totalFlightTimeSec) {
+          if (cancelExportRequested) break;
+
+          renderFlightState(curTime);
+
+          // Allow map and DOM to repaint
+          await new Promise(r => setTimeout(r, 10));
+
+          // Capture mapWrapper via html2canvas
+          const canvasSnapshot = await html2canvas(mapWrapper, {
+            useCORS: true,
+            allowTaint: true,
+            scale: res / mapWrapper.offsetWidth,
+            logging: false
+          });
+
+          ctx.clearRect(0, 0, res, res);
+          ctx.drawImage(canvasSnapshot, 0, 0, res, res);
+
+          const percent = Math.round((curTime / totalFlightTimeSec) * 100);
+          progressBar.style.width = percent + '%';
+          percentText.textContent = percent + '%';
+          statusText.textContent = `Rendering at ${formatTime(curTime)} / ${formatTime(totalFlightTimeSec)}`;
+
+          curTime += timeStep;
+        }
+      } catch (err) {
+        console.error("Export error:", err);
+        showCustomMessage("Error during video rendering. Check console.");
+      }
+
+      if (mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    }
+
+    function cleanupExportUI() {
+      isExporting = false;
+      cancelExportRequested = false;
+      const btnExport = document.getElementById('btnExport');
+      const btnCancel = document.getElementById('btnCancelExport');
+      const progressContainer = document.getElementById('exportProgressContainer');
+
+      btnExport.disabled = false;
+      btnExport.classList.remove('opacity-50', 'cursor-not-allowed');
+      btnCancel.classList.add('hidden');
+      progressContainer.classList.add('hidden');
+      document.getElementById('exportProgressBar').style.width = '0%';
+    }
+
+    function showCustomMessage(msg) {
+      // Create a lightweight non-blocking notification banner
+      const existing = document.getElementById('customNotification');
+      if (existing) existing.remove();
+
+      const banner = document.createElement('div');
+      banner.id = 'customNotification';
+      banner.className = 'fixed bottom-6 right-6 z-50 bg-slate-900 border border-indigo-500/50 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 backdrop-blur-md animate-bounce';
+      banner.innerHTML = `
+        <i class="fa-solid fa-circle-info text-indigo-400 text-lg"></i>
+        <span class="text-xs font-medium">${msg}</span>
+      `;
+      document.body.appendChild(banner);
+      setTimeout(() => {
+        if (banner.parentElement) banner.remove();
+      }, 4000);
+    }
+
     // --- EVENT LISTENERS ---
     document.addEventListener('DOMContentLoaded', () => {
       initMap();
 
-      // GPX Upload
-      document.getElementById('gpxInput').addEventListener('change', (e) => {
+      // Drag & drop area click triggers file input dialog
+      const dropZone = document.getElementById('dropZone');
+      const gpxInput = document.getElementById('gpxInput');
+
+      dropZone.addEventListener('click', () => {
+        gpxInput.click();
+      });
+
+      gpxInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
           const reader = new FileReader();
@@ -807,7 +959,7 @@
         renderFlightState(parseFloat(e.target.value));
       });
 
-      // Speed Buttons
+      // Speed Multipliers
       document.querySelectorAll('.btn-speed').forEach(btn => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('.btn-speed').forEach(b => {
@@ -820,9 +972,23 @@
         });
       });
 
+      // Export Buttons
+      document.getElementById('btnExport').addEventListener('click', startVideoExport);
+      document.getElementById('btnCancelExport').addEventListener('click', () => {
+        cancelExportRequested = true;
+        showCustomMessage("Cancelling video export...");
+      });
+
       // Map Layer & Zoom Settings
       document.getElementById('selectMapProvider').addEventListener('change', (e) => setMapProvider(e.target.value));
       document.getElementById('selectZoom').addEventListener('change', () => renderFlightState(currentFlightTimeSec));
+
+      // Widget Size Selector
+      document.getElementById('selectWidgetSize').addEventListener('change', (e) => {
+        const mapWrapper = document.getElementById('mapWrapper');
+        mapWrapper.classList.remove('widget-size-small', 'widget-size-normal', 'widget-size-large');
+        mapWrapper.classList.add(`widget-size-${e.target.value}`);
+      });
 
       // Color Controls
       document.getElementById('colorFlown').addEventListener('input', (e) => {
@@ -860,8 +1026,7 @@
         container.classList.add(`label-size-${e.target.value}`);
       });
 
-      // Drag and Drop GPX
-      const dropZone = document.getElementById('dropZone');
+      // Drag and Drop GPX support
       dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500'); });
       dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-indigo-500'));
       dropZone.addEventListener('drop', (e) => {
