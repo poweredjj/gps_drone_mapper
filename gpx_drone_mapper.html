@@ -54,11 +54,11 @@
             filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
         }
 
-        /* Scaled Hybrid/Satellite Map Labels */
-        .esri-labels-tile-layer {
+        /* Scaled Hybrid/Satellite Map Labels Pane */
+        .leaflet-pane.label-pane .leaflet-tile {
             overflow: visible !important;
         }
-        .esri-labels-tile-layer img {
+        .leaflet-pane.label-pane img {
             transform: scale(var(--label-scale));
             transform-origin: center center;
             filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.95)) contrast(120%);
@@ -197,10 +197,10 @@
                 <div>
                     <label class="block text-xs font-medium text-slate-400 mb-1">Location Names Size</label>
                     <select id="mapLabelSizeSelect" onchange="changeMapLabelSize()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                        <option value="0.85">Small</option>
+                        <option value="0.8">Small</option>
                         <option value="1.0">Normal</option>
                         <option value="1.35" selected>Big</option>
-                        <option value="1.75">Huge</option>
+                        <option value="1.8">Huge</option>
                     </select>
                 </div>
             </div>
@@ -509,8 +509,6 @@
             initMap();
             setupDragAndDrop();
             initDraggableHudWidgets();
-            // Initialize default label size scale ("Big" = 1.35)
-            document.documentElement.style.setProperty('--label-scale', '1.35');
         };
 
         function initMap() {
@@ -524,6 +522,11 @@
                 zoomControl: false,
                 attributionControl: false
             }).setView([52.2297, 21.0122], 15);
+
+            // Create dedicated custom pane for map location labels with overflow visible
+            map.createPane('labelPane');
+            map.getPane('labelPane').style.zIndex = 650;
+            map.getPane('labelPane').style.pointerEvents = 'none';
 
             setBaseTileLayer('osm');
         }
@@ -569,23 +572,13 @@
                 mapEl.classList.remove('dark-tile-filter');
             }
 
-if (config.labels || type === 'satellite' || type === 'hybrid') {
-    window.hybridLabelsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 19,
-        attribution: 'Esri Reference'
-    }).addTo(map);
-
-    // Apply scaling to the layer container upon load
-    setTimeout(() => {
-        const scaleValue = document.getElementById('mapLabelSizeSelect').value;
-        const container = window.hybridLabelsLayer.getContainer();
-        if (container) {
-            container.style.transform = `scale(${scaleValue})`;
-            container.style.transformOrigin = 'center center';
-            container.style.overflow = 'visible';
-        }
-    }, 50);
-}
+            if (config.labels || type === 'satellite' || type === 'hybrid') {
+                window.hybridLabelsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 19,
+                    attribution: 'Esri Reference',
+                    pane: 'labelPane'
+                }).addTo(map);
+            }
         }
 
         function changeTileLayer() {
@@ -625,9 +618,6 @@ if (config.labels || type === 'satellite' || type === 'hybrid') {
         function changeMapLabelSize() {
             const scaleValue = document.getElementById('mapLabelSizeSelect').value;
             document.documentElement.style.setProperty('--label-scale', scaleValue);
-            if (window.hybridLabelsLayer) {
-                window.hybridLabelsLayer.redraw();
-            }
         }
 
         // --- HUD Widget Toggles & Drag Logic ---
