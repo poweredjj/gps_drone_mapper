@@ -45,11 +45,6 @@
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
-        
-        /* Map Label Size adaptations */
-        .labels-small .leaflet-pane { font-size: 10px; }
-        .labels-normal .leaflet-pane { font-size: 13px; }
-        .labels-large .leaflet-pane { font-size: 17px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); }
 
         /* Draggable HUD Widget Styling & Sizes */
         .hud-widget {
@@ -79,7 +74,7 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white pb-28">
 
     <!-- Top Navigation Header -->
-    <header class="glass-panel border-b border-slate-800 sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+    <header class="glass-panel border-b border-slate-800 sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
         <div class="flex items-center space-x-3">
             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-brand-500/30">
                 <i class="fa-solid fa-drone text-white text-lg"></i>
@@ -160,23 +155,13 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Geographic Label Size</label>
-                        <select id="labelSizeSelect" onchange="changeLabelSize()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                            <option value="small">Small</option>
-                            <option value="normal" selected>Normal</option>
-                            <option value="large">Large</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Widget Size</label>
-                        <select id="widgetSizeSelect" onchange="changeWidgetSize()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                            <option value="small">Small</option>
-                            <option value="normal">Normal</option>
-                            <option value="large" selected>Large</option>
-                        </select>
-                    </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Widget Size</label>
+                    <select id="widgetSizeSelect" onchange="changeWidgetSize()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                        <option value="small">Small</option>
+                        <option value="normal">Normal</option>
+                        <option value="large" selected>Large</option>
+                    </select>
                 </div>
             </div>
 
@@ -233,7 +218,7 @@
                         <span><strong class="text-indigo-400 text-[10px] mr-1">ALT</strong> Altitude</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded-xl border border-slate-800">
-                        <input type="checkbox" id="toggleTime" checked onchange="toggleHudWidget('widgetTime', this.checked)" class="accent-brand-500 rounded">
+                        <input type="checkbox" id="toggleTime" onchange="toggleHudWidget('widgetTime', this.checked)" class="accent-brand-500 rounded">
                         <span><i class="fa-solid fa-stopwatch text-emerald-400 mr-1"></i> Flight Time</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded-xl border border-slate-800">
@@ -284,23 +269,9 @@
                     </select>
                 </div>
 
-                <!-- Export Progress Bar -->
-                <div id="exportProgressContainer" class="hidden space-y-2 bg-slate-900/90 p-3 rounded-xl border border-slate-800">
-                    <div class="flex justify-between text-xs font-medium">
-                        <span id="exportStatusText" class="text-brand-400">Rendering video at max GPU speed...</span>
-                        <span id="exportPercentage" class="text-slate-300">0%</span>
-                    </div>
-                    <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                        <div id="exportProgressBar" class="bg-brand-500 h-2 rounded-full transition-all duration-100" style="width: 0%"></div>
-                    </div>
-                </div>
-
                 <div class="flex items-center gap-3 pt-1">
                     <button onclick="startExport()" id="exportBtn" disabled class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-indigo-600 hover:from-brand-600 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-lg shadow-brand-500/20 transition flex items-center justify-center gap-2">
                         <i class="fa-solid fa-file-export"></i> Accelerated Fast Video Export
-                    </button>
-                    <button onclick="cancelExport()" id="cancelExportBtn" disabled class="px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition">
-                        Cancel
                     </button>
                 </div>
             </div>
@@ -313,7 +284,7 @@
             <div id="previewWrapper" class="w-full aspect-square rounded-2xl shadow-2xl border border-slate-700 bg-slate-900 relative overflow-hidden flex flex-col">
                 
                 <!-- Leaflet Map Canvas Container -->
-                <div id="map" class="w-full h-full z-10 labels-normal"></div>
+                <div id="map" class="w-full h-full z-10"></div>
 
                 <!-- Draggable Telemetry Overlay HUD Widgets (Default to Large) -->
                 
@@ -323,7 +294,6 @@
                         <i class="fa-solid fa-gauge-high"></i>
                     </div>
                     <div class="pointer-events-none">
-                        <p class="text-[12px] uppercase font-semibold text-slate-400 tracking-wider">Speed</p>
                         <p id="hudSpeed" class="text-lg font-bold text-white">0 <span class="text-xs font-normal text-slate-400">km/h</span></p>
                     </div>
                 </div>
@@ -334,13 +304,12 @@
                         <span class="text-xs font-extrabold tracking-tighter">ALT</span>
                     </div>
                     <div class="pointer-events-none">
-                        <p class="text-[12px] uppercase font-semibold text-slate-400 tracking-wider">Altitude</p>
                         <p id="hudAltitude" class="text-lg font-bold text-white">0 <span class="text-xs font-normal text-slate-400">m</span></p>
                     </div>
                 </div>
 
-                <!-- Flight Time Widget -->
-                <div id="widgetTime" class="hud-widget widget-size-large absolute top-5 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                <!-- Flight Time Widget (Disabled by default) -->
+                <div id="widgetTime" style="display: none;" class="hud-widget widget-size-large absolute top-5 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
                     <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center pointer-events-none">
                         <i class="fa-solid fa-stopwatch"></i>
                     </div>
@@ -350,24 +319,22 @@
                     </div>
                 </div>
 
-                <!-- Total Distance Widget -->
+                <!-- Total Distance Widget (No header text) -->
                 <div id="widgetDistance" class="hud-widget widget-size-large absolute top-28 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
                     <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center pointer-events-none">
                         <i class="fa-solid fa-arrows-rotate"></i>
                     </div>
                     <div class="pointer-events-none">
-                        <p class="text-[12px] uppercase font-semibold text-slate-400 tracking-wider">Total Distance</p>
                         <p id="hudDistance" class="text-lg font-bold text-white">0.00 <span class="text-xs font-normal text-slate-400">km</span></p>
                     </div>
                 </div>
 
-                <!-- Distance from Home Widget -->
+                <!-- Distance from Home Widget (No header text) -->
                 <div id="widgetHome" class="hud-widget widget-size-large absolute top-52 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
                     <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center pointer-events-none">
                         <i class="fa-solid fa-house"></i>
                     </div>
                     <div class="pointer-events-none">
-                        <p class="text-[12px] uppercase font-semibold text-slate-400 tracking-wider">Dist from Home</p>
                         <p id="hudHomeDist" class="text-lg font-bold text-white">0 <span class="text-xs font-normal text-slate-400">m</span></p>
                     </div>
                 </div>
@@ -379,7 +346,7 @@
     </main>
 
     <!-- Full-Width Bottom Playback Engine Panel -->
-    <footer class="fixed bottom-0 left-0 right-0 z-50 glass-panel border-t border-slate-800 px-6 py-3 shadow-2xl bg-slate-950/95 backdrop-blur-xl">
+    <footer class="fixed bottom-0 left-0 right-0 z-40 glass-panel border-t border-slate-800 px-6 py-3 shadow-2xl bg-slate-950/95 backdrop-blur-xl">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-4">
             
             <!-- Controls & Speed Multipliers -->
@@ -415,6 +382,46 @@
 
         </div>
     </footer>
+
+    <!-- Export Process Modal Window -->
+    <div id="exportModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-700 space-y-4 text-center">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 id="exportModalTitle" class="font-bold text-sm text-white flex items-center gap-2">
+                    <i class="fa-solid fa-video text-brand-400"></i> Rendering Video Export
+                </h3>
+                <span id="exportPercentageModal" class="text-xs font-mono font-bold text-brand-400">0%</span>
+            </div>
+
+            <!-- Live Frame Preview Canvas -->
+            <div class="w-full aspect-square max-w-[240px] mx-auto rounded-2xl overflow-hidden border border-slate-700 bg-slate-900 shadow-inner relative flex items-center justify-center">
+                <canvas id="exportLiveCanvas" class="w-full h-full object-contain"></canvas>
+            </div>
+
+            <!-- Progress & ETA -->
+            <div class="space-y-2">
+                <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                    <div id="exportModalProgressBar" class="bg-brand-500 h-2 rounded-full transition-all duration-75" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between text-[11px] text-slate-400">
+                    <span id="exportEtaText">Estimated time remaining: Calculating...</span>
+                    <span id="exportFramesText">Frame 0 / 0</span>
+                </div>
+            </div>
+
+            <!-- Complete State Banner -->
+            <div id="exportCompleteBanner" class="hidden bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2">
+                <i class="fa-solid fa-circle-check text-base"></i> Export Complete! Downloading MP4 file...
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-center pt-2">
+                <button onclick="cancelExport()" id="exportModalAbortBtn" class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-lg shadow-rose-600/30 transition flex items-center gap-2">
+                    <i class="fa-solid fa-ban"></i> Abort Export
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -518,12 +525,6 @@
         function changeMapLanguage() {
             const lang = document.getElementById('mapLanguageSelect').value;
             showToast(`Map language set to ${lang.toUpperCase()}`);
-        }
-
-        function changeLabelSize() {
-            const size = document.getElementById('labelSizeSelect').value;
-            const mapEl = document.getElementById('map');
-            mapEl.className = `w-full h-full z-10 labels-${size}`;
         }
 
         function changeWidgetSize() {
@@ -918,8 +919,14 @@
             document.getElementById('hudTime').textContent = formatTime(timeSec);
             document.getElementById('hudDistance').innerHTML = `${currPt.cumulativeDist.toFixed(2)} <span class="text-xs font-normal text-slate-400">km</span>`;
             
-            const distHome = getDistanceFromLatLonInKm(homeLocation.lat, homeLocation.lon, currPt.lat, currPt.lon) * 1000;
-            document.getElementById('hudHomeDist').innerHTML = `${Math.round(distHome)} <span class="text-xs font-normal text-slate-400">m</span>`;
+            // Distance from home: meters when <1km, km with 2 decimals when >1km
+            const distHomeKm = getDistanceFromLatLonInKm(homeLocation.lat, homeLocation.lon, currPt.lat, currPt.lon);
+            if (distHomeKm < 1) {
+                const distHomeM = Math.round(distHomeKm * 1000);
+                document.getElementById('hudHomeDist').innerHTML = `${distHomeM} <span class="text-xs font-normal text-slate-400">m</span>`;
+            } else {
+                document.getElementById('hudHomeDist').innerHTML = `${distHomeKm.toFixed(2)} <span class="text-xs font-normal text-slate-400">km</span>`;
+            }
 
             droneMarker.setLatLng([currPt.lat, currPt.lon]);
             map.setView([currPt.lat, currPt.lon], map.getZoom(), { animate: false });
@@ -945,22 +952,34 @@
             }
         }
 
-        // --- Accelerated Non-Realtime GPU Video Export ---
+        // --- Accelerated Non-Realtime GPU Video Export Modal Suite ---
         async function startExport() {
             if (trackPoints.length === 0 || isExporting) return;
             isExporting = true;
             exportCancelRequested = false;
 
-            const exportBtn = document.getElementById('exportBtn');
-            const cancelBtn = document.getElementById('cancelExportBtn');
-            const progressContainer = document.getElementById('exportProgressContainer');
-            const progressBar = document.getElementById('exportProgressBar');
-            const percentageEl = document.getElementById('exportPercentage');
-            const statusText = document.getElementById('exportStatusText');
+            if (isPlaying) togglePlay();
 
-            exportBtn.disabled = true;
-            cancelBtn.disabled = false;
-            progressContainer.classList.remove('hidden');
+            // Disable background interface interaction
+            document.body.classList.add('pointer-events-none');
+
+            // Show export modal window
+            const modal = document.getElementById('exportModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('pointer-events-auto');
+
+            const progressBar = document.getElementById('exportModalProgressBar');
+            const percentageEl = document.getElementById('exportPercentageModal');
+            const framesText = document.getElementById('exportFramesText');
+            const etaText = document.getElementById('exportEtaText');
+            const completeBanner = document.getElementById('exportCompleteBanner');
+            const abortBtn = document.getElementById('exportModalAbortBtn');
+
+            progressBar.style.width = '0%';
+            percentageEl.textContent = '0%';
+            completeBanner.classList.add('hidden');
+            abortBtn.classList.remove('hidden');
+            abortBtn.textContent = 'Abort Export';
 
             const res = parseInt(document.getElementById('exportRes').value);
             const fps = parseInt(document.getElementById('exportFps').value);
@@ -970,6 +989,9 @@
             exportCanvas.width = res;
             exportCanvas.height = res;
             const exportCtx = exportCanvas.getContext('2d');
+
+            const liveCanvas = document.getElementById('exportLiveCanvas');
+            const liveCtx = liveCanvas.getContext('2d');
 
             const stream = exportCanvas.captureStream(fps);
             let mimeType = 'video/webm;codecs=vp9';
@@ -992,28 +1014,32 @@
 
             mediaRecorder.onstop = () => {
                 if (!exportCancelRequested) {
+                    completeBanner.classList.remove('hidden');
+                    abortBtn.textContent = 'Close Window';
+                    abortBtn.classList.remove('bg-rose-600', 'hover:bg-rose-700');
+                    abortBtn.classList.add('bg-brand-500', 'hover:bg-brand-600');
+                    abortBtn.onclick = closeExportModal;
+
                     const blob = new Blob(recordedChunks, { type: 'video/webm' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `drone_flight_${res}x${res}_${fps}fps.webm`;
+                    a.download = `drone_flight_${res}x${res}_${fps}fps.mp4`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     showToast('Video exported successfully!');
+                } else {
+                    cleanupExport();
                 }
-                cleanupExport();
             };
 
             mediaRecorder.start();
 
-            if (isPlaying) togglePlay();
-
             const totalFrames = Math.ceil(totalFlightDuration * fps);
             const frameDuration = 1 / fps;
             const previewEl = document.getElementById('previewWrapper');
-
-            statusText.textContent = 'Rendering frames at maximum GPU speed...';
+            const startTime = performance.now();
 
             for (let currentFrame = 0; currentFrame < totalFrames; currentFrame++) {
                 if (exportCancelRequested) break;
@@ -1022,7 +1048,6 @@
 
                 updatePlayback(t);
 
-                // Capture high fidelity snapshot of preview container using html2canvas
                 try {
                     const snapshot = await html2canvas(previewEl, {
                         scale: res / previewEl.offsetWidth,
@@ -1030,8 +1055,15 @@
                         logging: false,
                         backgroundColor: '#0f172a'
                     });
+                    
                     exportCtx.clearRect(0, 0, res, res);
                     exportCtx.drawImage(snapshot, 0, 0, res, res);
+
+                    // Update live preview inside the export modal window
+                    liveCanvas.width = snapshot.width;
+                    liveCanvas.height = snapshot.height;
+                    liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
+                    liveCtx.drawImage(snapshot, 0, 0);
                 } catch (err) {
                     console.error('Snapshot frame error:', err);
                 }
@@ -1039,9 +1071,14 @@
                 const percent = Math.round(((currentFrame + 1) / totalFrames) * 100);
                 progressBar.style.width = `${percent}%`;
                 percentageEl.textContent = `${percent}%`;
+                framesText.textContent = `Frame ${currentFrame + 1} / ${totalFrames}`;
 
-                // Yield briefly to event loop for stream ingestion without real-time waiting
-                await new Promise(r => setTimeout(r, 4));
+                // Calculate ETA
+                const elapsedMs = performance.now() - startTime;
+                const avgTimePerFrame = elapsedMs / (currentFrame + 1);
+                const remainingFrames = totalFrames - (currentFrame + 1);
+                const etaSec = Math.ceil((remainingFrames * avgTimePerFrame) / 1000);
+                etaText.textContent = `Estimated time remaining: ${etaSec}s`;
             }
 
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
@@ -1058,12 +1095,22 @@
             cleanupExport();
         }
 
+        function closeExportModal() {
+            cleanupExport();
+        }
+
         function cleanupExport() {
             isExporting = false;
-            document.getElementById('exportBtn').disabled = false;
-            document.getElementById('cancelExportBtn').disabled = true;
-            document.getElementById('exportProgressContainer').classList.add('hidden');
-            document.getElementById('exportProgressBar').style.width = '0%';
+            document.body.classList.remove('pointer-events-none');
+            const modal = document.getElementById('exportModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('pointer-events-auto');
+
+            const abortBtn = document.getElementById('exportModalAbortBtn');
+            abortBtn.textContent = 'Abort Export';
+            abortBtn.onclick = cancelExport;
+            abortBtn.classList.remove('bg-brand-500', 'hover:bg-brand-600');
+            abortBtn.classList.add('bg-rose-600', 'hover:bg-rose-700');
         }
 
         function formatTime(sec) {
