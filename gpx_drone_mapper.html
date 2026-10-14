@@ -1,1048 +1,1113 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-950">
+<html lang="en" class="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GPX Drone Mapper & Exporter</title>
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Leaflet CSS & JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  
-  <!-- html2canvas for Video Frame Rendering -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPX Drone Mapper & Exporter</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- html2canvas for Fast GPU-accelerated Video Export Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        /* Map Label Size adaptations */
+        .labels-small .leaflet-pane { font-size: 10px; }
+        .labels-normal .leaflet-pane { font-size: 13px; }
+        .labels-large .leaflet-pane { font-size: 17px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); }
 
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+        /* Draggable HUD Widget Styling & Sizes */
+        .hud-widget {
+            user-select: none;
+            touch-action: none;
+            cursor: move;
+            transition: padding 0.2s, font-size 0.2s;
+        }
 
-  <style>
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        /* Widget Size variants */
+        .widget-size-small { padding: 6px 10px !important; }
+        .widget-size-small .w-10, .widget-size-small .w-8 { width: 24px !important; height: 24px !important; font-size: 11px !important; }
+        .widget-size-small p.text-\[10px\] { font-size: 9px !important; }
+        .widget-size-small p.text-sm { font-size: 12px !important; }
 
-    /* Disable Leaflet interaction cursor when locked */
-    .map-locked .leaflet-container { cursor: default !important; }
+        .widget-size-normal { padding: 8px 14px !important; }
+        .widget-size-normal .w-10, .widget-size-normal .w-8 { width: 32px !important; height: 32px !important; font-size: 13px !important; }
+        .widget-size-normal p.text-\[10px\] { font-size: 10px !important; }
+        .widget-size-normal p.text-sm { font-size: 14px !important; }
 
-    /* Geographic Label Size Modifiers */
-    .label-size-small .leaflet-tile-container { font-size: 10px !important; }
-    .label-size-normal .leaflet-tile-container { font-size: 13px !important; }
-    .label-size-large .leaflet-tile-container { font-size: 16px !important; }
-
-    /* Widget Size Modifiers */
-    .widget-size-small .hud-widget { padding: 6px 10px !important; font-size: 11px !important; }
-    .widget-size-small .hud-widget i, .widget-size-small .hud-widget span.font-extrabold { font-size: 12px !important; }
-    .widget-size-small .hud-widget .val-text { font-size: 13px !important; }
-    .widget-size-small .hud-widget .unit-text { font-size: 9px !important; }
-
-    .widget-size-normal .hud-widget { padding: 10px 14px !important; font-size: 13px !important; }
-    .widget-size-normal .hud-widget i, .widget-size-normal .hud-widget span.font-extrabold { font-size: 15px !important; }
-    .widget-size-normal .hud-widget .val-text { font-size: 17px !important; }
-    .widget-size-normal .hud-widget .unit-text { font-size: 10px !important; }
-
-    .widget-size-large .hud-widget { padding: 14px 20px !important; font-size: 16px !important; }
-    .widget-size-large .hud-widget i, .widget-size-large .hud-widget span.font-extrabold { font-size: 20px !important; }
-    .widget-size-large .hud-widget .val-text { font-size: 24px !important; }
-    .widget-size-large .hud-widget .unit-text { font-size: 12px !important; }
-  </style>
+        .widget-size-large { padding: 14px 20px !important; }
+        .widget-size-large .w-10, .widget-size-large .w-8 { width: 44px !important; height: 44px !important; font-size: 18px !important; }
+        .widget-size-large p.text-\[10px\] { font-size: 12px !important; letter-spacing: 0.05em; }
+        .widget-size-large p.text-sm { font-size: 18px !important; }
+    </style>
 </head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white pb-28">
 
-<body class="h-full flex flex-col text-slate-100 font-sans antialiased bg-slate-950 select-none overflow-x-hidden">
-
-  <!-- TOP HEADER (No Open GPX button) -->
-  <header class="h-14 bg-slate-900/90 border-b border-slate-800 px-6 flex items-center justify-between shrink-0 z-30 backdrop-blur-md">
-    <div class="flex items-center space-x-3">
-      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30">
-        <i class="fa-solid fa-drone text-white text-sm"></i>
-      </div>
-      <div>
-        <h1 class="text-base font-bold text-white tracking-wide leading-tight">GPX Drone Mapper</h1>
-        <p class="text-[10px] text-slate-400 font-medium">Real-time Flight Video Renderer</p>
-      </div>
-    </div>
-
-    <div class="flex items-center space-x-3">
-      <button id="btnLoadSample" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md border border-slate-700 transition flex items-center space-x-1.5">
-        <i class="fa-solid fa-flask text-indigo-400"></i>
-        <span>Sample Flight</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- MAIN WRAPPER (Content + Bottom Playback) -->
-  <div class="flex-1 flex flex-col min-h-0">
-    
-    <!-- DASHBOARD BODY (2 Columns) -->
-    <div class="flex-1 flex min-h-0 overflow-hidden">
-      
-      <!-- LEFT SIDEBAR: CONTROLS & SETTINGS -->
-      <aside class="w-80 lg:w-96 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 overflow-y-auto">
-        <div class="p-5 space-y-6">
-          
-          <!-- FILE DRAG DROP & CLICK AREA -->
-          <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-800/40 hover:bg-slate-800/80 rounded-xl p-4 text-center transition cursor-pointer">
-            <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-400 mb-2"></i>
-            <p class="text-xs font-semibold text-slate-300">Click or Drag & Drop GPX file</p>
-            <p class="text-[10px] text-slate-500 mt-0.5">Supports 3D telemetry timestamps</p>
-            <input type="file" id="gpxInput" accept=".gpx" class="hidden" />
-          </div>
-
-          <!-- SECTION 1: MAP STYLES & SIZES -->
-          <div class="space-y-3">
-            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-2">
-              <i class="fa-solid fa-layer-group text-indigo-400"></i>
-              <span>Map Layer & HUD Sizing</span>
-            </h2>
-
-            <div class="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <label class="text-[11px] font-medium text-slate-400 mb-1 block">Map Basemap</label>
-                <select id="selectMapProvider" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 font-medium focus:outline-none focus:border-indigo-500">
-                  <option value="osm">OpenStreetMap</option>
-                  <option value="sat">Satellite (Esri)</option>
-                  <option value="carto_dark">Dark Matter (CARTO)</option>
-                  <option value="carto_light">Positron Light (CARTO)</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="text-[11px] font-medium text-slate-400 mb-1 block">Zoom Level</label>
-                <select id="selectZoom" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 font-medium focus:outline-none focus:border-indigo-500">
-                  <option value="15">15 - Far</option>
-                  <option value="17" selected>17 - Medium</option>
-                  <option value="18">18 - Close</option>
-                  <option value="19">19 - Ultra Close</option>
-                </select>
-              </div>
+    <!-- Top Navigation Header -->
+    <header class="glass-panel border-b border-slate-800 sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-brand-500/30">
+                <i class="fa-solid fa-drone text-white text-lg"></i>
             </div>
-
-            <div class="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <label class="text-[11px] font-medium text-slate-400 mb-1 block">HUD Widget Size</label>
-                <select id="selectWidgetSize" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 font-medium focus:outline-none focus:border-indigo-500">
-                  <option value="small">Small</option>
-                  <option value="normal" selected>Normal</option>
-                  <option value="large">Large</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="text-[11px] font-medium text-slate-400 mb-1 block">Geographic Label Size</label>
-                <select id="selectLabelSize" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 font-medium focus:outline-none focus:border-indigo-500">
-                  <option value="small">Small</option>
-                  <option value="normal" selected>Normal</option>
-                  <option value="large">Large</option>
-                </select>
-              </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-tight text-white flex items-center gap-2">
+                    GPX Drone Mapper & Exporter
+                </h1>
+                <p class="text-xs text-slate-400">High-Precision Telemetry Mapping & Accelerated GPU Video Export</p>
             </div>
-          </div>
-
-          <!-- SECTION 2: ROUTE & DRONE STYLING -->
-          <div class="space-y-3 pt-2 border-t border-slate-800">
-            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-2">
-              <i class="fa-solid fa-palette text-indigo-400"></i>
-              <span>Visual Customization</span>
-            </h2>
-
-            <div class="grid grid-cols-3 gap-2">
-              <div>
-                <label class="text-[10px] font-medium text-slate-400 mb-1 block">Flown Route</label>
-                <div class="flex items-center space-x-2 bg-slate-800 p-1.5 rounded-lg border border-slate-700">
-                  <input type="color" id="colorFlown" value="#3b82f6" class="w-6 h-6 rounded cursor-pointer border-0 bg-transparent" />
-                  <span class="text-[11px] font-mono text-slate-300">Flown</span>
-                </div>
-              </div>
-
-              <div>
-                <label class="text-[10px] font-medium text-slate-400 mb-1 block">Unflown Route</label>
-                <div class="flex items-center space-x-2 bg-slate-800 p-1.5 rounded-lg border border-slate-700">
-                  <input type="color" id="colorUnflown" value="#64748b" class="w-6 h-6 rounded cursor-pointer border-0 bg-transparent" />
-                  <span class="text-[11px] font-mono text-slate-300">Path</span>
-                </div>
-              </div>
-
-              <div>
-                <label class="text-[10px] font-medium text-slate-400 mb-1 block">Drone Arrow</label>
-                <div class="flex items-center space-x-2 bg-slate-800 p-1.5 rounded-lg border border-slate-700">
-                  <input type="color" id="colorDrone" value="#ef4444" class="w-6 h-6 rounded cursor-pointer border-0 bg-transparent" />
-                  <span class="text-[11px] font-mono text-slate-300">Arrow</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="pt-1">
-              <label class="inline-flex items-center space-x-2 cursor-pointer">
-                <!-- Unflown path disabled by default -->
-                <input type="checkbox" id="chkShowUnflown" class="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-4 h-4" />
-                <span class="text-xs text-slate-300 font-medium">Show unflown future route path</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- SECTION 3: TELEMETRY OVERLAYS (Clean: icon, value, unit only) -->
-          <div class="space-y-3 pt-2 border-t border-slate-800">
-            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-2">
-              <i class="fa-solid fa-sliders text-indigo-400"></i>
-              <span>On-Screen HUD Telemetry Widgets</span>
-            </h2>
-
-            <div class="grid grid-cols-2 gap-2 text-xs">
-              <label class="flex items-center space-x-2 bg-slate-800/60 p-2 rounded-lg border border-slate-700/60 cursor-pointer">
-                <input type="checkbox" id="chkSpeed" checked class="rounded bg-slate-800 border-slate-700 text-indigo-600" />
-                <span class="text-slate-300"><i class="fa-solid fa-gauge-high text-indigo-400 mr-1.5"></i>Speed</span>
-              </label>
-
-              <label class="flex items-center space-x-2 bg-slate-800/60 p-2 rounded-lg border border-slate-700/60 cursor-pointer">
-                <input type="checkbox" id="chkAltitude" checked class="rounded bg-slate-800 border-slate-700 text-indigo-600" />
-                <span class="text-slate-300"><span class="font-bold text-indigo-400 mr-1 text-[10px]">ALT</span>Altitude</span>
-              </label>
-
-              <label class="flex items-center space-x-2 bg-slate-800/60 p-2 rounded-lg border border-slate-700/60 cursor-pointer">
-                <input type="checkbox" id="chkTotalDist" checked class="rounded bg-slate-800 border-slate-700 text-indigo-600" />
-                <span class="text-slate-300"><i class="fa-solid fa-arrows-rotate text-indigo-400 mr-1.5"></i>Total Dist</span>
-              </label>
-
-              <label class="flex items-center space-x-2 bg-slate-800/60 p-2 rounded-lg border border-slate-700/60 cursor-pointer">
-                <input type="checkbox" id="chkHomeDist" checked class="rounded bg-slate-800 border-slate-700 text-indigo-600" />
-                <span class="text-slate-300"><i class="fa-solid fa-house text-indigo-400 mr-1.5"></i>Home Dist</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- SECTION 4: EXPORT SUITE -->
-          <div class="space-y-3 pt-2 border-t border-slate-800">
-            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-2">
-              <i class="fa-solid fa-video text-indigo-400"></i>
-              <span>1:1 MP4 / WebM Exporter</span>
-            </h2>
-
-            <div class="grid grid-cols-3 gap-2 text-xs">
-              <div>
-                <label class="text-[10px] font-medium text-slate-400 mb-1 block">Frame Rate</label>
-                <select id="exportFps" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none">
-                  <option value="15">15 FPS</option>
-                  <option value="30" selected>30 FPS</option>
-                  <option value="60">60 FPS</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="text-[10px] font-medium text-slate-400 mb-1 block">Resolution</label>
-                <select id="exportRes" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none">
-                  <option value="720">720x720</option>
-                  <option value="1080" selected>1080x1080</option>
-                  <option value="1440">1440x1440</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="text-[10px] font-medium text-slate-400 mb-1 block">Bitrate</label>
-                <select id="exportBitrate" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none">
-                  <option value="4">4 Mbps</option>
-                  <option value="8" selected>8 Mbps</option>
-                  <option value="16">16 Mbps</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- EXPORT ACTION BUTTONS -->
-            <div class="pt-2 flex items-center space-x-2">
-              <button id="btnExport" class="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2">
-                <i class="fa-solid fa-film"></i>
-                <span>Render 1:1 Video</span>
-              </button>
-
-              <button id="btnCancelExport" class="hidden py-2.5 px-3 bg-red-600/80 hover:bg-red-600 text-white font-bold text-xs rounded-lg transition flex items-center justify-center">
-                <i class="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            <!-- EXPORT PROGRESS BAR -->
-            <div id="exportProgressContainer" class="hidden space-y-1.5 pt-1">
-              <div class="flex justify-between text-[11px] text-slate-400 font-mono">
-                <span id="exportStatusText">Rendering frame...</span>
-                <span id="exportPercentText">0%</span>
-              </div>
-              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div id="exportProgressBar" class="h-full bg-indigo-500 w-0 transition-all duration-75"></div>
-              </div>
-            </div>
-          </div>
-
         </div>
-      </aside>
+        <div class="flex items-center space-x-3">
+            <button onclick="loadSampleFlight()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition flex items-center gap-2 shadow-sm">
+                <i class="fa-solid fa-bolt text-amber-400"></i> Load Sample Flight
+            </button>
+            <div id="connectionStatus" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="statusText">Ready for GPX</span>
+            </div>
+        </div>
+    </header>
 
-      <!-- RIGHT DISPLAY AREA: 1:1 SQUARE PREVIEW CONTAINER -->
-      <main class="flex-1 bg-slate-950 p-6 flex items-center justify-center relative overflow-hidden">
+    <!-- Main Dashboard Body Layout -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        <!-- 1:1 PREVIEW BOX (Widget Size container class applied) -->
-        <div id="mapWrapper" class="relative aspect-square w-full max-w-[620px] max-h-[80vh] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-900 group widget-size-normal">
-          
-          <!-- LEAFLET MAP ELEMENT -->
-          <div id="map" class="w-full h-full z-0"></div>
-
-          <!-- DRAGGABLE HUD TELEMETRY WIDGETS (Clean: Icon + Value + Unit ONLY) -->
-          <div id="hudLayer" class="absolute inset-0 pointer-events-none z-20">
+        <!-- Left Sidebar Options & Settings (5 Cols) -->
+        <div class="lg:col-span-5 space-y-6">
             
-            <!-- SPEED WIDGET -->
-            <div id="widgetSpeed" class="hud-widget pointer-events-auto absolute top-4 left-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3.5 py-2.5 shadow-xl cursor-move flex items-center space-x-2.5">
-              <i class="fa-solid fa-gauge-high text-indigo-400 text-base"></i>
-              <div class="flex items-baseline space-x-1">
-                <span id="valSpeed" class="val-text font-black font-mono leading-none text-lg">0</span>
-                <span class="unit-text font-normal text-slate-400 text-xs">km/h</span>
-              </div>
+            <!-- GPX Flight Source Loader -->
+            <div class="glass-panel rounded-2xl p-5 shadow-xl">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-file-arrow-up text-brand-400"></i> GPX Flight Source
+                </h2>
+                <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-brand-500 rounded-xl p-5 text-center cursor-pointer transition bg-slate-900/50 group">
+                    <input type="file" id="gpxFileInput" accept=".gpx" class="hidden" onchange="handleFileSelect(event)">
+                    <div class="w-10 h-10 rounded-full bg-slate-800 group-hover:bg-brand-500/20 flex items-center justify-center mx-auto mb-2 transition">
+                        <i class="fa-solid fa-cloud-arrow-up text-slate-400 group-hover:text-brand-400 text-lg transition"></i>
+                    </div>
+                    <p class="text-xs font-medium text-slate-200">Drag & drop your .gpx file here</p>
+                    <p class="text-[11px] text-slate-500 mt-0.5">or <span class="text-brand-400 underline">click to browse files</span></p>
+                </div>
+                <div id="fileInfo" class="mt-3 hidden text-xs text-slate-400 bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2 truncate">
+                        <i class="fa-solid fa-file-lines text-brand-400"></i>
+                        <span id="fileName" class="font-medium text-slate-200 truncate">flight.gpx</span>
+                    </div>
+                    <span id="fileStats" class="text-slate-500">0 pts</span>
+                </div>
             </div>
 
-            <!-- ALTITUDE WIDGET -->
-            <div id="widgetAltitude" class="hud-widget pointer-events-auto absolute top-4 right-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3.5 py-2.5 shadow-xl cursor-move flex items-center space-x-2.5">
-              <span class="font-extrabold text-indigo-400 text-sm">ALT</span>
-              <div class="flex items-baseline space-x-1">
-                <span id="valAltitude" class="val-text font-black font-mono leading-none text-lg">0</span>
-                <span class="unit-text font-normal text-slate-400 text-xs">m</span>
-              </div>
+            <!-- Map Settings, Language & Widget Size -->
+            <div class="glass-panel rounded-2xl p-5 shadow-xl space-y-4">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-map text-brand-400"></i> Map & HUD Settings
+                </h2>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Basemap</label>
+                        <select id="tileLayerSelect" onchange="changeTileLayer()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                            <option value="osm" selected>OpenStreetMap</option>
+                            <option value="satellite">Satellite (Esri)</option>
+                            <option value="hybrid">Hybrid (Satellite + Labels)</option>
+                            <option value="dark">Dark Matter (Carto)</option>
+                            <option value="light">Positron (Carto)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Map Language</label>
+                        <select id="mapLanguageSelect" onchange="changeMapLanguage()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                            <option value="en">English</option>
+                            <option value="native" selected>Native</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="pl">Polish</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Geographic Label Size</label>
+                        <select id="labelSizeSelect" onchange="changeLabelSize()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                            <option value="small">Small</option>
+                            <option value="normal" selected>Normal</option>
+                            <option value="large">Large</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Widget Size</label>
+                        <select id="widgetSizeSelect" onchange="changeWidgetSize()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                            <option value="small">Small</option>
+                            <option value="normal">Normal</option>
+                            <option value="large" selected>Large</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
-            <!-- TOTAL DISTANCE WIDGET -->
-            <div id="widgetTotalDist" class="hud-widget pointer-events-auto absolute bottom-4 left-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3.5 py-2.5 shadow-xl cursor-move flex items-center space-x-2.5">
-              <i class="fa-solid fa-arrows-rotate text-indigo-400 text-base"></i>
-              <div class="flex items-baseline space-x-1">
-                <span id="valTotalDist" class="val-text font-black font-mono leading-none text-lg">0.0</span>
-                <span class="unit-text font-normal text-slate-400 text-xs">km</span>
-              </div>
+            <!-- Visualization Route & Drone Styling -->
+            <div class="glass-panel rounded-2xl p-5 shadow-xl space-y-4">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-palette text-brand-400"></i> Route & Drone Styling
+                </h2>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Flown Route Color</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" id="flownColorPicker" value="#0ea5e9" onchange="updateColors()" class="w-9 h-9 rounded-lg bg-slate-900 border border-slate-700 cursor-pointer p-1">
+                            <span class="text-xs text-slate-400">Completed</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Drone Arrow Color</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" id="droneColorPicker" value="#ef4444" onchange="updateColors()" class="w-9 h-9 rounded-lg bg-slate-900 border border-slate-700 cursor-pointer p-1">
+                            <span class="text-xs text-slate-400">Heading</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t border-slate-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-xs font-medium text-slate-400">Unflown Route Path</label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="showUnflownToggle" onchange="updateColors()" class="sr-only peer">
+                            <div class="w-7 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="unflownColorPicker" value="#64748b" onchange="updateColors()" class="w-9 h-9 rounded-lg bg-slate-900 border border-slate-700 cursor-pointer p-1">
+                        <span class="text-xs text-slate-400">Upcoming Path (Dashed)</span>
+                    </div>
+                </div>
             </div>
 
-            <!-- HOME DISTANCE WIDGET -->
-            <div id="widgetHomeDist" class="hud-widget pointer-events-auto absolute bottom-4 right-4 bg-slate-900/85 backdrop-blur-md text-white border border-slate-700/80 rounded-xl px-3.5 py-2.5 shadow-xl cursor-move flex items-center space-x-2.5">
-              <i class="fa-solid fa-house text-indigo-400 text-base"></i>
-              <div class="flex items-baseline space-x-1">
-                <span id="valHomeDist" class="val-text font-black font-mono leading-none text-lg">0</span>
-                <span class="unit-text font-normal text-slate-400 text-xs">m</span>
-              </div>
+            <!-- Telemetry HUD Widget Toggles -->
+            <div class="glass-panel rounded-2xl p-5 shadow-xl space-y-3">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-brand-400"></i> HUD Widget Toggles
+                </h2>
+                <div class="grid grid-cols-2 gap-2.5 text-xs text-slate-300">
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                        <input type="checkbox" id="toggleSpeed" checked onchange="toggleHudWidget('widgetSpeed', this.checked)" class="accent-brand-500 rounded">
+                        <span><i class="fa-solid fa-gauge-high text-brand-400 mr-1"></i> Speed</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                        <input type="checkbox" id="toggleAltitude" checked onchange="toggleHudWidget('widgetAltitude', this.checked)" class="accent-brand-500 rounded">
+                        <span><strong class="text-indigo-400 text-[10px] mr-1">ALT</strong> Altitude</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                        <input type="checkbox" id="toggleTime" checked onchange="toggleHudWidget('widgetTime', this.checked)" class="accent-brand-500 rounded">
+                        <span><i class="fa-solid fa-stopwatch text-emerald-400 mr-1"></i> Flight Time</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                        <input type="checkbox" id="toggleDistance" checked onchange="toggleHudWidget('widgetDistance', this.checked)" class="accent-brand-500 rounded">
+                        <span><i class="fa-solid fa-arrows-rotate text-amber-400 mr-1"></i> Distance</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-900/60 p-2 rounded-xl border border-slate-800 col-span-2">
+                        <input type="checkbox" id="toggleHome" checked onchange="toggleHudWidget('widgetHome', this.checked)" class="accent-brand-500 rounded">
+                        <span><i class="fa-solid fa-house text-purple-400 mr-1"></i> Distance from Home</span>
+                    </label>
+                </div>
             </div>
 
-          </div>
+            <!-- Video Export Suite -->
+            <div class="glass-panel rounded-2xl p-5 shadow-xl space-y-4">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-video text-brand-400"></i> Video Export Suite (MP4 / WebM)
+                </h2>
 
-          <!-- LOCK BADGE OVERLAY -->
-          <div class="absolute top-3 left-1/2 -translate-x-1/2 bg-slate-900/80 backdrop-blur-md px-2.5 py-1 rounded-full border border-slate-800 text-[10px] text-slate-400 font-medium pointer-events-none z-10 flex items-center space-x-1.5 shadow-md">
-            <i class="fa-solid fa-lock text-indigo-400 text-[9px]"></i>
-            <span>Map Camera Centered on Drone</span>
-          </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Resolution (1:1)</label>
+                        <select id="exportRes" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                            <option value="720">720 x 720 HD</option>
+                            <option value="1080" selected>1080 x 1080 Full HD</option>
+                            <option value="1440">1440 x 1440 2K</option>
+                            <option value="2160">2160 x 2160 4K</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Framerate</label>
+                        <select id="exportFps" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                            <option value="60">60 FPS (Ultra Smooth)</option>
+                            <option value="30" selected>30 FPS (Standard)</option>
+                            <option value="15">15 FPS</option>
+                            <option value="10">10 FPS</option>
+                            <option value="5">5 FPS</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Bitrate & Quality</label>
+                    <select id="exportBitrate" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                        <option value="12000000">Maximum (12 Mbps)</option>
+                        <option value="8000000" selected>Ultra High (8 Mbps)</option>
+                        <option value="4000000">High (4 Mbps)</option>
+                    </select>
+                </div>
+
+                <!-- Export Progress Bar -->
+                <div id="exportProgressContainer" class="hidden space-y-2 bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+                    <div class="flex justify-between text-xs font-medium">
+                        <span id="exportStatusText" class="text-brand-400">Rendering video at max GPU speed...</span>
+                        <span id="exportPercentage" class="text-slate-300">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                        <div id="exportProgressBar" class="bg-brand-500 h-2 rounded-full transition-all duration-100" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 pt-1">
+                    <button onclick="startExport()" id="exportBtn" disabled class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-indigo-600 hover:from-brand-600 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-lg shadow-brand-500/20 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-export"></i> Accelerated Fast Video Export
+                    </button>
+                    <button onclick="cancelExport()" id="cancelExportBtn" disabled class="px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+
         </div>
 
-      </main>
-    </div>
+        <!-- Right Column: 1:1 Square Map Preview & Overlay Widgets (7 Cols) -->
+        <div class="lg:col-span-7 flex flex-col items-center w-full max-w-[650px] mx-auto">
+            
+            <div id="previewWrapper" class="w-full aspect-square rounded-2xl shadow-2xl border border-slate-700 bg-slate-900 relative overflow-hidden flex flex-col">
+                
+                <!-- Leaflet Map Canvas Container -->
+                <div id="map" class="w-full h-full z-10 labels-normal"></div>
 
-    <!-- BOTTOM PLAYBACK ENGINE PANEL (FULL WIDTH) -->
-    <footer class="h-20 bg-slate-900 border-t border-slate-800 px-6 flex items-center justify-between shrink-0 z-30">
-      <div class="flex items-center space-x-4 w-full max-w-6xl mx-auto">
-        
-        <!-- PLAY / PAUSE BUTTON -->
-        <button id="btnPlayPause" class="w-11 h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 transition shrink-0">
-          <i id="playIcon" class="fa-solid fa-play text-sm translate-x-0.5"></i>
-        </button>
+                <!-- Draggable Telemetry Overlay HUD Widgets (Default to Large) -->
+                
+                <!-- Speed Widget -->
+                <div id="widgetSpeed" class="hud-widget widget-size-large absolute top-5 left-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                    <div class="w-10 h-10 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center pointer-events-none">
+                        <i class="fa-solid fa-gauge-high"></i>
+                    </div>
+                    <div class="pointer-events-none">
+                        <p class="text-[12px] uppercase font-semibold text-slate-400 tracking-wider">Speed</p>
+                        <p id="hudSpeed" class="text-lg font-bold text-white">0 <span class="text-xs font-normal text-slate-400">km/h</span></p>
+                    </div>
+                </div>
 
-        <!-- FLIGHT TIMELINE SCRUBBER & DURATION -->
-        <div class="flex-1 flex flex-col space-y-1">
-          <div class="flex justify-between items-center text-xs font-mono text-slate-400">
-            <span id="timeCurrent" class="text-indigo-400 font-bold">00:00</span>
-            <span id="flightDuration" class="text-slate-500">00:00</span>
-          </div>
-          <input type="range" id="timelineSlider" min="0" max="100" value="0" step="0.1" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none" />
+                <!-- Altitude Widget -->
+                <div id="widgetAltitude" class="hud-widget widget-size-large absolute top-28 left-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center pointer-events-none">
+                        <span class="text-xs font-extrabold tracking-tighter">ALT</span>
+                    </div>
+                    <div class="pointer-events-none">
+                        <p class="text-[12px] uppercase font-semibold text-slate-400 tracking-wider">Altitude</p>
+                        <p id="hudAltitude" class="text-lg font-bold text-white">0 <span class="text-xs font-normal text-slate-400">m</span></p>
+                    </div>
+                </div>
+
+                <!-- Flight Time Widget -->
+                <div id="widgetTime" class="hud-widget widget-size-large absolute top-5 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center pointer-events-none">
+                        <i class="fa-solid fa-stopwatch"></i>
+                    </div>
+                    <div class="pointer-events-none">
+                        <p class="text-[12px] uppercase font-semibold text-slate-400 tracking-wider">Flight Time</p>
+                        <p id="hudTime" class="text-lg font-bold text-white">00:00</p>
+                    </div>
+                </div>
+
+                <!-- Total Distance Widget -->
+                <div id="widgetDistance" class="hud-widget widget-size-large absolute top-28 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center pointer-events-none">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </div>
+                    <div class="pointer-events-none">
+                        <p class="text-[12px] uppercase font-semibold text-slate-400 tracking-wider">Total Distance</p>
+                        <p id="hudDistance" class="text-lg font-bold text-white">0.00 <span class="text-xs font-normal text-slate-400">km</span></p>
+                    </div>
+                </div>
+
+                <!-- Distance from Home Widget -->
+                <div id="widgetHome" class="hud-widget widget-size-large absolute top-52 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                    <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center pointer-events-none">
+                        <i class="fa-solid fa-house"></i>
+                    </div>
+                    <div class="pointer-events-none">
+                        <p class="text-[12px] uppercase font-semibold text-slate-400 tracking-wider">Dist from Home</p>
+                        <p id="hudHomeDist" class="text-lg font-bold text-white">0 <span class="text-xs font-normal text-slate-400">m</span></p>
+                    </div>
+                </div>
+
+                <!-- Watermark / Footer Badge -->
+                <div class="absolute bottom-3 left-3 z-20 pointer-events-none bg-slate-950/80 backdrop-blur-md px-3 py-1 rounded-lg border border-slate-800 text-[10px] text-slate-400 flex items-center gap-1.5 shadow-md">
+                    <i class="fa-solid fa-drone text-brand-400"></i> GPX Drone Mapper
+                </div>
+
+            </div>
+
         </div>
 
-        <!-- SPEED MULTIPLIERS -->
-        <div class="flex items-center bg-slate-800/80 p-1 rounded-lg border border-slate-700/80 space-x-1 shrink-0">
-          <button data-speed="1" class="btn-speed px-2.5 py-1 text-xs font-bold rounded-md bg-indigo-600 text-white transition">1x</button>
-          <button data-speed="2" class="btn-speed px-2.5 py-1 text-xs font-bold rounded-md text-slate-400 hover:text-white transition">2x</button>
-          <button data-speed="5" class="btn-speed px-2.5 py-1 text-xs font-bold rounded-md text-slate-400 hover:text-white transition">5x</button>
-          <button data-speed="10" class="btn-speed px-2.5 py-1 text-xs font-bold rounded-md text-slate-400 hover:text-white transition">10x</button>
-        </div>
+    </main>
 
-      </div>
+    <!-- Full-Width Bottom Playback Engine Panel -->
+    <footer class="fixed bottom-0 left-0 right-0 z-50 glass-panel border-t border-slate-800 px-6 py-3 shadow-2xl bg-slate-950/95 backdrop-blur-xl">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-4">
+            
+            <!-- Controls & Speed Multipliers -->
+            <div class="flex items-center space-x-3 shrink-0">
+                <button onclick="togglePlay()" id="playBtn" disabled class="w-11 h-11 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-lg shadow-brand-500/20 transition">
+                    <i class="fa-solid fa-play text-base" id="playIcon"></i>
+                </button>
+                <button onclick="resetPlayback()" id="resetBtn" disabled class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 flex items-center justify-center transition border border-slate-700">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+
+                <!-- Speed Selector Pills -->
+                <div class="flex items-center bg-slate-900 rounded-xl p-1 border border-slate-800 ml-2">
+                    <button onclick="setSpeed(1)" id="spd1" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 text-white transition">1x</button>
+                    <button onclick="setSpeed(2)" id="spd2" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition">2x</button>
+                    <button onclick="setSpeed(5)" id="spd5" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition">5x</button>
+                    <button onclick="setSpeed(10)" id="spd10" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition">10x</button>
+                </div>
+            </div>
+
+            <!-- Full Width Timeline Scrubber -->
+            <div class="flex-1 w-full flex items-center gap-3">
+                <span class="text-xs font-semibold text-brand-400 min-w-[45px] text-right font-mono" id="currentTimeDisplay">00:00</span>
+                <input type="range" id="timeScrubber" min="0" max="100" value="0" step="0.05" oninput="onScrub(this.value)" class="flex-1 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-500">
+                <span class="text-xs font-semibold text-slate-400 min-w-[45px] font-mono" id="totalTimeDisplay">00:00</span>
+            </div>
+
+            <!-- Time Readout Badge -->
+            <div class="hidden xl:flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 font-medium shrink-0">
+                <i class="fa-solid fa-clock text-brand-400"></i>
+                <span>Elapsed Flight Time</span>
+            </div>
+
+        </div>
     </footer>
 
-  </div>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+        // --- Global Application State ---
+        let map;
+        let tileLayer;
+        let trackPoints = []; 
+        let totalFlightDuration = 0; 
+        let totalFlightDistance = 0; 
+        let homeLocation = null;
 
-  <!-- APPLICATION LOGIC -->
-  <script>
-    // --- APP STATE ---
-    let map = null;
-    let flownPolyline = null;
-    let unflownPolyline = null;
-    let droneMarker = null;
+        let isPlaying = false;
+        let playbackTime = 0; 
+        let playbackSpeed = 1;
+        let animationFrameId = null;
+        let lastTimestamp = null;
 
-    let flightPoints = []; 
-    let totalFlightTimeSec = 0;
-    let currentFlightTimeSec = 0;
+        let flownPolyline = null;
+        let unflownPolyline = null;
+        let droneMarker = null;
 
-    let isPlaying = false;
-    let playSpeed = 1;
-    let lastAnimTimestamp = 0;
-    let isExporting = false;
-    let cancelExportRequested = false;
+        let isExporting = false;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let exportCancelRequested = false;
 
-    // --- TILE PROVIDERS (Rate-limit safe CDNs) ---
-    const TILE_PROVIDERS = {
-      osm: {
-        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-        attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-      },
-      sat: {
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        attr: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-      },
-      carto_dark: {
-        url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-      },
-      carto_light: {
-        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-      }
-    };
+        // Tile layer definitions
+        const tileConfigs = {
+            osm: {
+                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                options: { maxZoom: 19, attribution: '© OpenStreetMap' }
+            },
+            satellite: {
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                options: { maxZoom: 19, attribution: 'Tiles © Esri' }
+            },
+            hybrid: {
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                options: { maxZoom: 19, attribution: 'Tiles © Esri' }
+            },
+            dark: {
+                url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                options: { maxZoom: 19, attribution: '© CARTO' }
+            },
+            light: {
+                url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                options: { maxZoom: 19, attribution: '© CARTO' }
+            }
+        };
 
-    let activeTileLayer = null;
+        // Initialize Map & Event Handlers
+        window.onload = function() {
+            initMap();
+            setupDragAndDrop();
+            initDraggableHudWidgets();
+        };
 
-    // --- INITIALIZE LEAFLET MAP ---
-    function initMap() {
-      const container = document.getElementById('map');
-      
-      map = L.map(container, {
-        zoomControl: false,
-        dragging: false,
-        scrollWheelZoom: false,
-        doubleClickZoom: false,
-        boxZoom: false,
-        keyboard: false,
-        touchZoom: false
-      }).setView([52.2297, 21.0122], 17);
+        function initMap() {
+            map = L.map('map', {
+                dragging: false,
+                touchZoom: false,
+                scrollWheelZoom: false,
+                doubleClickZoom: false,
+                boxZoom: false,
+                keyboard: false,
+                zoomControl: false,
+                attributionControl: false
+            }).setView([52.2297, 21.0122], 15);
 
-      setMapProvider('osm');
-
-      // Initialize route lines
-      flownPolyline = L.polyline([], {
-        color: document.getElementById('colorFlown').value,
-        weight: 4,
-        opacity: 0.9,
-        lineCap: 'round',
-        lineJoin: 'round'
-      }).addTo(map);
-
-      unflownPolyline = L.polyline([], {
-        color: document.getElementById('colorUnflown').value,
-        weight: 3,
-        dashArray: '6, 8',
-        opacity: 0.6,
-        lineCap: 'round',
-        lineJoin: 'round'
-      }).addTo(map);
-
-      // Custom Drone SVG Icon
-      updateDroneIcon(document.getElementById('colorDrone').value, 0);
-
-      // Setup Draggable Telemetry Widgets
-      setupDraggableWidgets();
-    }
-
-    // --- CHANGE TILE PROVIDER ---
-    function setMapProvider(providerKey) {
-      if (activeTileLayer) {
-        map.removeLayer(activeTileLayer);
-      }
-      const provider = TILE_PROVIDERS[providerKey] || TILE_PROVIDERS.osm;
-      activeTileLayer = L.tileLayer(provider.url, {
-        attribution: provider.attr,
-        maxZoom: 19,
-        crossOrigin: 'anonymous'
-      }).addTo(map);
-    }
-
-    // --- DRONE ARROW MARKER CREATION ---
-    function updateDroneIcon(color, heading = 0) {
-      const svgIcon = `
-        <div style="transform: rotate(${heading}deg); transition: transform 0.05s linear; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L19 21L12 17L5 21L12 2Z" fill="${color}" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
-          </svg>
-        </div>
-      `;
-
-      const customIcon = L.divIcon({
-        html: svgIcon,
-        className: 'drone-custom-marker',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
-      });
-
-      if (!droneMarker) {
-        droneMarker = L.marker([0, 0], { icon: customIcon }).addTo(map);
-      } else {
-        droneMarker.setIcon(customIcon);
-      }
-    }
-
-    // --- GPX PARSER ---
-    function parseGPX(xmlText) {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-      const trkpts = xmlDoc.getElementsByTagName("trkpt");
-
-      if (!trkpts || trkpts.length < 2) {
-        showCustomMessage("Invalid GPX file or insufficient track points!");
-        return;
-      }
-
-      flightPoints = [];
-      let totalDist = 0;
-      let homePoint = null;
-
-      const firstTime = trkpts[0].getElementsByTagName("time")[0] ? new Date(trkpts[0].getElementsByTagName("time")[0].textContent).getTime() : 0;
-
-      for (let i = 0; i < trkpts.length; i++) {
-        const pt = trkpts[i];
-        const lat = parseFloat(pt.getAttribute("lat"));
-        const lng = parseFloat(pt.getAttribute("lon"));
-        const eleNode = pt.getElementsByTagName("ele")[0];
-        const timeNode = pt.getElementsByTagName("time")[0];
-
-        const ele = eleNode ? parseFloat(eleNode.textContent) : 0;
-        const ptTime = timeNode ? new Date(timeNode.textContent).getTime() : firstTime + (i * 1000);
-
-        if (i === 0) {
-          homePoint = { lat, lng };
+            setBaseTileLayer('osm');
         }
 
-        let distFromPrev = 0;
-        let speedKmH = 0;
+        function setBaseTileLayer(type) {
+            if (tileLayer) {
+                map.removeLayer(tileLayer);
+            }
+            const config = tileConfigs[type] || tileConfigs.osm;
+            tileLayer = L.tileLayer(config.url, config.options).addTo(map);
 
-        if (i > 0) {
-          const prev = flightPoints[i - 1];
-          distFromPrev = calculateDistance(prev.lat, prev.lng, lat, lng);
-          totalDist += distFromPrev;
-
-          const timeDiffSec = (ptTime - prev.time) / 1000;
-          if (timeDiffSec > 0) {
-            speedKmH = (distFromPrev / timeDiffSec) * 3.6;
-          }
+            if (type === 'hybrid') {
+                if (window.hybridLabelsLayer) {
+                    map.removeLayer(window.hybridLabelsLayer);
+                }
+                window.hybridLabelsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 19,
+                    attribution: 'Esri Reference'
+                }).addTo(map);
+            } else if (window.hybridLabelsLayer) {
+                map.removeLayer(window.hybridLabelsLayer);
+                window.hybridLabelsLayer = null;
+            }
         }
 
-        const distFromHome = calculateDistance(homePoint.lat, homePoint.lng, lat, lng);
-
-        flightPoints.push({
-          lat,
-          lng,
-          ele,
-          time: ptTime,
-          timeOffset: (ptTime - firstTime) / 1000,
-          distFromStart: totalDist,
-          distFromHome,
-          speed: speedKmH
-        });
-      }
-
-      totalFlightTimeSec = flightPoints[flightPoints.length - 1].timeOffset;
-      currentFlightTimeSec = 0;
-
-      document.getElementById('timelineSlider').max = totalFlightTimeSec;
-      document.getElementById('timelineSlider').value = 0;
-      document.getElementById('flightDuration').textContent = formatTime(totalFlightTimeSec);
-
-      renderFlightState(0);
-    }
-
-    // --- CALCULATE HAVERSINE DISTANCE (METERS) ---
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371000;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      return R * c;
-    }
-
-    // --- RENDER FLIGHT STATE BY TIME ---
-    function renderFlightState(targetTimeSec) {
-      if (!flightPoints.length) return;
-
-      targetTimeSec = Math.max(0, Math.min(targetTimeSec, totalFlightTimeSec));
-      currentFlightTimeSec = targetTimeSec;
-
-      let idx = flightPoints.findIndex(p => p.timeOffset >= targetTimeSec);
-      if (idx === -1) idx = flightPoints.length - 1;
-      if (idx === 0) idx = 1;
-
-      const p1 = flightPoints[idx - 1];
-      const p2 = flightPoints[idx];
-
-      const segmentDuration = p2.timeOffset - p1.timeOffset;
-      const factor = segmentDuration > 0 ? (targetTimeSec - p1.timeOffset) / segmentDuration : 0;
-
-      const curLat = p1.lat + (p2.lat - p1.lat) * factor;
-      const curLng = p1.lng + (p2.lng - p1.lng) * factor;
-      const curEle = p1.ele + (p2.ele - p1.ele) * factor;
-      const curSpeed = p1.speed + (p2.speed - p1.speed) * factor;
-      const curTotalDist = p1.distFromStart + (p2.distFromStart - p1.distFromStart) * factor;
-      const curHomeDist = p1.distFromHome + (p2.distFromHome - p1.distFromHome) * factor;
-
-      const heading = calculateBearing(p1.lat, p1.lng, p2.lat, p2.lng);
-
-      const curLatLng = [curLat, curLng];
-      const zoom = parseInt(document.getElementById('selectZoom').value, 10);
-      map.setView(curLatLng, zoom, { animate: false });
-
-      if (droneMarker) {
-        droneMarker.setLatLng(curLatLng);
-        updateDroneIcon(document.getElementById('colorDrone').value, heading);
-      }
-
-      const flownCoords = flightPoints.slice(0, idx).map(p => [p.lat, p.lng]);
-      flownCoords.push(curLatLng);
-      flownPolyline.setLatLngs(flownCoords);
-
-      if (document.getElementById('chkShowUnflown').checked) {
-        const unflownCoords = [curLatLng, ...flightPoints.slice(idx).map(p => [p.lat, p.lng])];
-        unflownPolyline.setLatLngs(unflownCoords);
-        unflownPolyline.setStyle({ opacity: 0.6 });
-      } else {
-        unflownPolyline.setLatLngs([]);
-      }
-
-      document.getElementById('valSpeed').textContent = Math.round(curSpeed);
-      document.getElementById('valAltitude').textContent = Math.round(curEle);
-      document.getElementById('valTotalDist').textContent = (curTotalDist / 1000).toFixed(1);
-      document.getElementById('valHomeDist').textContent = Math.round(curHomeDist);
-
-      document.getElementById('timelineSlider').value = targetTimeSec;
-      document.getElementById('timeCurrent').textContent = formatTime(targetTimeSec);
-    }
-
-    // --- BEARING CALCULATION ---
-    function calculateBearing(lat1, lon1, lat2, lon2) {
-      const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
-      const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
-                Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
-      const brng = Math.atan2(y, x) * 180 / Math.PI;
-      return (brng + 360) % 360;
-    }
-
-    // --- FORMAT TIME (MM:SS) ---
-    function formatTime(seconds) {
-      const m = Math.floor(seconds / 60);
-      const s = Math.floor(seconds % 60);
-      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }
-
-    // --- ANIMATION LOOP (PLAYBACK) ---
-    function animStep(timestamp) {
-      if (!isPlaying) return;
-
-      if (!lastAnimTimestamp) lastAnimTimestamp = timestamp;
-      const deltaSec = (timestamp - lastAnimTimestamp) / 1000;
-      lastAnimTimestamp = timestamp;
-
-      currentFlightTimeSec += deltaSec * playSpeed;
-
-      if (currentFlightTimeSec >= totalFlightTimeSec) {
-        currentFlightTimeSec = totalFlightTimeSec;
-        renderFlightState(currentFlightTimeSec);
-        togglePlay(false);
-        return;
-      }
-
-      renderFlightState(currentFlightTimeSec);
-      requestAnimationFrame(animStep);
-    }
-
-    function togglePlay(state) {
-      isPlaying = state !== undefined ? state : !isPlaying;
-      const playIcon = document.getElementById('playIcon');
-
-      if (isPlaying) {
-        if (currentFlightTimeSec >= totalFlightTimeSec) {
-          currentFlightTimeSec = 0;
-        }
-        lastAnimTimestamp = 0;
-        playIcon.className = "fa-solid fa-pause text-sm";
-        requestAnimationFrame(animStep);
-      } else {
-        playIcon.className = "fa-solid fa-play text-sm translate-x-0.5";
-      }
-    }
-
-    // --- DRAGGABLE WIDGETS LOGIC ---
-    function setupDraggableWidgets() {
-      const widgets = document.querySelectorAll('.hud-widget');
-      const container = document.getElementById('mapWrapper');
-
-      widgets.forEach(widget => {
-        let isDragging = false;
-        let startX, startY, initialLeft, initialTop;
-
-        widget.addEventListener('mousedown', (e) => {
-          isDragging = true;
-          startX = e.clientX;
-          startY = e.clientY;
-
-          const rect = widget.getBoundingClientRect();
-          const containerRect = container.getBoundingClientRect();
-
-          initialLeft = rect.left - containerRect.left;
-          initialTop = rect.top - containerRect.top;
-
-          widget.style.right = 'auto';
-          widget.style.bottom = 'auto';
-          widget.style.left = initialLeft + 'px';
-          widget.style.top = initialTop + 'px';
-
-          document.addEventListener('mousemove', onMouseMove);
-          document.addEventListener('mouseup', onMouseUp);
-        });
-
-        function onMouseMove(e) {
-          if (!isDragging) return;
-          const dx = e.clientX - startX;
-          const dy = e.clientY - startY;
-
-          const containerRect = container.getBoundingClientRect();
-          const widgetRect = widget.getBoundingClientRect();
-
-          let newLeft = initialLeft + dx;
-          let newTop = initialTop + dy;
-
-          newLeft = Math.max(8, Math.min(newLeft, containerRect.width - widgetRect.width - 8));
-          newTop = Math.max(8, Math.min(newTop, containerRect.height - widgetRect.height - 8));
-
-          widget.style.left = newLeft + 'px';
-          widget.style.top = newTop + 'px';
+        function changeTileLayer() {
+            const select = document.getElementById('tileLayerSelect');
+            setBaseTileLayer(select.value);
         }
 
-        function onMouseUp() {
-          isDragging = false;
-          document.removeEventListener('mousemove', onMouseMove);
-          document.removeEventListener('mouseup', onMouseUp);
-        }
-      });
-    }
-
-    // --- SAMPLE FLIGHT GENERATOR ---
-    function loadSampleFlight() {
-      flightPoints = [];
-      const startLat = 52.2297;
-      const startLng = 21.0122;
-      const duration = 120; // 2 minutes
-
-      let currentLat = startLat;
-      let currentLng = startLng;
-      let totalDist = 0;
-
-      for (let i = 0; i <= duration; i++) {
-        const angle = (i / duration) * Math.PI * 4;
-        currentLat = startLat + Math.sin(angle) * 0.003;
-        currentLng = startLng + Math.cos(angle) * 0.005;
-
-        const ele = 45 + Math.sin(i / 10) * 15;
-        const time = i * 1000;
-
-        let distFromPrev = 0;
-        let speed = 25 + Math.sin(i / 5) * 10;
-
-        if (i > 0) {
-          const prev = flightPoints[i - 1];
-          distFromPrev = calculateDistance(prev.lat, prev.lng, currentLat, currentLng);
-          totalDist += distFromPrev;
+        function changeMapLanguage() {
+            const lang = document.getElementById('mapLanguageSelect').value;
+            showToast(`Map language set to ${lang.toUpperCase()}`);
         }
 
-        const distFromHome = calculateDistance(startLat, startLng, currentLat, currentLng);
-
-        flightPoints.push({
-          lat: currentLat,
-          lng: currentLng,
-          ele,
-          time,
-          timeOffset: i,
-          distFromStart: totalDist,
-          distFromHome,
-          speed
-        });
-      }
-
-      totalFlightTimeSec = duration;
-      currentFlightTimeSec = 0;
-
-      document.getElementById('timelineSlider').max = totalFlightTimeSec;
-      document.getElementById('timelineSlider').value = 0;
-      document.getElementById('flightDuration').textContent = formatTime(totalFlightTimeSec);
-
-      renderFlightState(0);
-    }
-
-    // --- FULLY FUNCTIONAL 1:1 VIDEO EXPORTER (html2canvas & MediaRecorder) ---
-    async function startVideoExport() {
-      if (!flightPoints.length) {
-        showCustomMessage("Please load a GPX flight path first!");
-        return;
-      }
-      if (isExporting) return;
-
-      isExporting = true;
-      cancelExportRequested = false;
-      togglePlay(false);
-
-      const fps = parseInt(document.getElementById('exportFps').value, 10);
-      const res = parseInt(document.getElementById('exportRes').value, 10);
-      const bitrate = parseInt(document.getElementById('exportBitrate').value, 10) * 1_000_000;
-
-      const btnExport = document.getElementById('btnExport');
-      const btnCancel = document.getElementById('btnCancelExport');
-      const progressContainer = document.getElementById('exportProgressContainer');
-      const progressBar = document.getElementById('exportProgressBar');
-      const statusText = document.getElementById('exportStatusText');
-      const percentText = document.getElementById('exportPercentText');
-
-      btnExport.disabled = true;
-      btnExport.classList.add('opacity-50', 'cursor-not-allowed');
-      btnCancel.classList.remove('hidden');
-      progressContainer.classList.remove('hidden');
-
-      // Create an offscreen recording canvas
-      const exportCanvas = document.createElement('canvas');
-      exportCanvas.width = res;
-      exportCanvas.height = res;
-      const ctx = exportCanvas.getContext('2d');
-
-      const stream = exportCanvas.captureStream(fps);
-      let mediaRecorder;
-      try {
-        mediaRecorder = new MediaRecorder(stream, {
-          mimeType: 'video/webm;codecs=vp9',
-          videoBitsPerSecond: bitrate
-        });
-      } catch (e) {
-        try {
-          mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-        } catch (e2) {
-          mediaRecorder = new MediaRecorder(stream);
+        function changeLabelSize() {
+            const size = document.getElementById('labelSizeSelect').value;
+            const mapEl = document.getElementById('map');
+            mapEl.className = `w-full h-full z-10 labels-${size}`;
         }
-      }
 
-      const chunks = [];
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) chunks.push(e.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        if (!cancelExportRequested && chunks.length > 0) {
-          const blob = new Blob(chunks, { type: 'video/webm' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `drone-flight-${res}x${res}.webm`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          showCustomMessage("Video export completed successfully!");
+        function changeWidgetSize() {
+            const size = document.getElementById('widgetSizeSelect').value;
+            const widgets = document.querySelectorAll('.hud-widget');
+            widgets.forEach(w => {
+                w.classList.remove('widget-size-small', 'widget-size-normal', 'widget-size-large');
+                w.classList.add(`widget-size-${size}`);
+            });
         }
-        cleanupExportUI();
-      };
 
-      mediaRecorder.start();
-
-      const mapWrapper = document.getElementById('mapWrapper');
-      const timeStep = 1 / fps;
-      let curTime = 0;
-
-      try {
-        while (curTime <= totalFlightTimeSec) {
-          if (cancelExportRequested) break;
-
-          renderFlightState(curTime);
-
-          // Allow map and DOM to repaint
-          await new Promise(r => setTimeout(r, 10));
-
-          // Capture mapWrapper via html2canvas
-          const canvasSnapshot = await html2canvas(mapWrapper, {
-            useCORS: true,
-            allowTaint: true,
-            scale: res / mapWrapper.offsetWidth,
-            logging: false
-          });
-
-          ctx.clearRect(0, 0, res, res);
-          ctx.drawImage(canvasSnapshot, 0, 0, res, res);
-
-          const percent = Math.round((curTime / totalFlightTimeSec) * 100);
-          progressBar.style.width = percent + '%';
-          percentText.textContent = percent + '%';
-          statusText.textContent = `Rendering at ${formatTime(curTime)} / ${formatTime(totalFlightTimeSec)}`;
-
-          curTime += timeStep;
+        // --- HUD Widget Toggles & Drag Logic ---
+        function toggleHudWidget(widgetId, isChecked) {
+            const widget = document.getElementById(widgetId);
+            if (widget) {
+                widget.style.display = isChecked ? 'flex' : 'none';
+            }
         }
-      } catch (err) {
-        console.error("Export error:", err);
-        showCustomMessage("Error during video rendering. Check console.");
-      }
 
-      if (mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-      }
-    }
+        function initDraggableHudWidgets() {
+            const wrapper = document.getElementById('previewWrapper');
+            const widgets = document.querySelectorAll('.hud-widget');
 
-    function cleanupExportUI() {
-      isExporting = false;
-      cancelExportRequested = false;
-      const btnExport = document.getElementById('btnExport');
-      const btnCancel = document.getElementById('btnCancelExport');
-      const progressContainer = document.getElementById('exportProgressContainer');
+            widgets.forEach(widget => {
+                let isDragging = false;
+                let startX, startY, initialLeft, initialTop;
 
-      btnExport.disabled = false;
-      btnExport.classList.remove('opacity-50', 'cursor-not-allowed');
-      btnCancel.classList.add('hidden');
-      progressContainer.classList.add('hidden');
-      document.getElementById('exportProgressBar').style.width = '0%';
-    }
+                widget.addEventListener('pointerdown', (e) => {
+                    isDragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    
+                    const rect = widget.getBoundingClientRect();
+                    const containerRect = wrapper.getBoundingClientRect();
 
-    function showCustomMessage(msg) {
-      // Create a lightweight non-blocking notification banner
-      const existing = document.getElementById('customNotification');
-      if (existing) existing.remove();
+                    initialLeft = rect.left - containerRect.left;
+                    initialTop = rect.top - containerRect.top;
 
-      const banner = document.createElement('div');
-      banner.id = 'customNotification';
-      banner.className = 'fixed bottom-6 right-6 z-50 bg-slate-900 border border-indigo-500/50 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 backdrop-blur-md animate-bounce';
-      banner.innerHTML = `
-        <i class="fa-solid fa-circle-info text-indigo-400 text-lg"></i>
-        <span class="text-xs font-medium">${msg}</span>
-      `;
-      document.body.appendChild(banner);
-      setTimeout(() => {
-        if (banner.parentElement) banner.remove();
-      }, 4000);
-    }
+                    widget.setPointerCapture(e.pointerId);
+                });
 
-    // --- EVENT LISTENERS ---
-    document.addEventListener('DOMContentLoaded', () => {
-      initMap();
+                widget.addEventListener('pointermove', (e) => {
+                    if (!isDragging) return;
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
 
-      // Drag & drop area click triggers file input dialog
-      const dropZone = document.getElementById('dropZone');
-      const gpxInput = document.getElementById('gpxInput');
+                    const containerRect = wrapper.getBoundingClientRect();
+                    const widgetRect = widget.getBoundingClientRect();
 
-      dropZone.addEventListener('click', () => {
-        gpxInput.click();
-      });
+                    let newLeft = initialLeft + dx;
+                    let newTop = initialTop + dy;
 
-      gpxInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (evt) => parseGPX(evt.target.result);
-          reader.readAsText(file);
+                    newLeft = Math.max(8, Math.min(containerRect.width - widgetRect.width - 8, newLeft));
+                    newTop = Math.max(8, Math.min(containerRect.height - widgetRect.height - 8, newTop));
+
+                    widget.style.left = `${newLeft}px`;
+                    widget.style.top = `${newTop}px`;
+                    widget.style.right = 'auto';
+                });
+
+                widget.addEventListener('pointerup', (e) => {
+                    isDragging = false;
+                    try { widget.releasePointerCapture(e.pointerId); } catch(err) {}
+                });
+            });
         }
-      });
 
-      // Sample Flight Button
-      document.getElementById('btnLoadSample').addEventListener('click', loadSampleFlight);
+        // --- Drag & Drop GPX Parser ---
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('dropZone');
+            dropZone.addEventListener('click', () => document.getElementById('gpxFileInput').click());
 
-      // Playback Controls
-      document.getElementById('btnPlayPause').addEventListener('click', () => togglePlay());
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    dropZone.classList.add('border-brand-500', 'bg-brand-500/10');
+                }, false);
+            });
 
-      document.getElementById('timelineSlider').addEventListener('input', (e) => {
-        togglePlay(false);
-        renderFlightState(parseFloat(e.target.value));
-      });
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    dropZone.classList.remove('border-brand-500', 'bg-brand-500/10');
+                }, false);
+            });
 
-      // Speed Multipliers
-      document.querySelectorAll('.btn-speed').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('.btn-speed').forEach(b => {
-            b.classList.remove('bg-indigo-600', 'text-white');
-            b.classList.add('text-slate-400');
-          });
-          btn.classList.add('bg-indigo-600', 'text-white');
-          btn.classList.remove('text-slate-400');
-          playSpeed = parseFloat(btn.dataset.speed);
-        });
-      });
-
-      // Export Buttons
-      document.getElementById('btnExport').addEventListener('click', startVideoExport);
-      document.getElementById('btnCancelExport').addEventListener('click', () => {
-        cancelExportRequested = true;
-        showCustomMessage("Cancelling video export...");
-      });
-
-      // Map Layer & Zoom Settings
-      document.getElementById('selectMapProvider').addEventListener('change', (e) => setMapProvider(e.target.value));
-      document.getElementById('selectZoom').addEventListener('change', () => renderFlightState(currentFlightTimeSec));
-
-      // Widget Size Selector
-      document.getElementById('selectWidgetSize').addEventListener('change', (e) => {
-        const mapWrapper = document.getElementById('mapWrapper');
-        mapWrapper.classList.remove('widget-size-small', 'widget-size-normal', 'widget-size-large');
-        mapWrapper.classList.add(`widget-size-${e.target.value}`);
-      });
-
-      // Color Controls
-      document.getElementById('colorFlown').addEventListener('input', (e) => {
-        flownPolyline.setStyle({ color: e.target.value });
-      });
-
-      document.getElementById('colorUnflown').addEventListener('input', (e) => {
-        unflownPolyline.setStyle({ color: e.target.value });
-      });
-
-      document.getElementById('colorDrone').addEventListener('input', () => {
-        renderFlightState(currentFlightTimeSec);
-      });
-
-      document.getElementById('chkShowUnflown').addEventListener('change', () => renderFlightState(currentFlightTimeSec));
-
-      // Telemetry Widget Toggles
-      document.getElementById('chkSpeed').addEventListener('change', (e) => {
-        document.getElementById('widgetSpeed').style.display = e.target.checked ? 'flex' : 'none';
-      });
-      document.getElementById('chkAltitude').addEventListener('change', (e) => {
-        document.getElementById('widgetAltitude').style.display = e.target.checked ? 'flex' : 'none';
-      });
-      document.getElementById('chkTotalDist').addEventListener('change', (e) => {
-        document.getElementById('widgetTotalDist').style.display = e.target.checked ? 'flex' : 'none';
-      });
-      document.getElementById('chkHomeDist').addEventListener('change', (e) => {
-        document.getElementById('widgetHomeDist').style.display = e.target.checked ? 'flex' : 'none';
-      });
-
-      // Label Size Selector
-      document.getElementById('selectLabelSize').addEventListener('change', (e) => {
-        const container = document.getElementById('mapWrapper');
-        container.classList.remove('label-size-small', 'label-size-normal', 'label-size-large');
-        container.classList.add(`label-size-${e.target.value}`);
-      });
-
-      // Drag and Drop GPX support
-      dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500'); });
-      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-indigo-500'));
-      dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('border-indigo-500');
-        if (e.dataTransfer.files.length) {
-          const file = e.dataTransfer.files[0];
-          const reader = new FileReader();
-          reader.onload = (evt) => parseGPX(evt.target.result);
-          reader.readAsText(file);
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0 && files[0].name.endsWith('.gpx')) {
+                    parseGpxFile(files[0]);
+                } else {
+                    showToast('Please upload a valid .gpx file.');
+                }
+            });
         }
-      });
 
-      // Load Default Sample Flight on Startup
-      loadSampleFlight();
-    });
-  </script>
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                parseGpxFile(files[0]);
+            }
+        }
+
+        function parseGpxFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                processGpxXml(e.target.result, file.name);
+            };
+            reader.readAsText(file);
+        }
+
+        function processGpxXml(xmlString, fileName) {
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+                const trkpts = xmlDoc.getElementsByTagName('trkpt');
+
+                if (trkpts.length === 0) {
+                    showToast('No track points found in GPX file.');
+                    return;
+                }
+
+                let rawPoints = [];
+                for (let i = 0; i < trkpts.length; i++) {
+                    const pt = trkpts[i];
+                    const lat = parseFloat(pt.getAttribute('lat'));
+                    const lon = parseFloat(pt.getAttribute('lon'));
+                    const eleEl = pt.getElementsByTagName('ele')[0];
+                    const timeEl = pt.getElementsByTagName('time')[0];
+
+                    const ele = eleEl ? parseFloat(eleEl.textContent) : 0;
+                    const time = timeEl ? new Date(timeEl.textContent).getTime() : i * 1000;
+
+                    rawPoints.push({ lat, lon, ele, time });
+                }
+
+                buildTrackData(rawPoints, fileName);
+            } catch (err) {
+                console.error(err);
+                showToast('Error parsing GPX file.');
+            }
+        }
+
+        function buildTrackData(rawPoints, fileName) {
+            trackPoints = [];
+            let cumulativeDist = 0;
+
+            for (let i = 0; i < rawPoints.length; i++) {
+                const curr = rawPoints[i];
+                let speed = 0;
+                let heading = 0;
+
+                if (i === 0) {
+                    curr.timeOffset = 0;
+                    curr.distance = 0;
+                    curr.cumulativeDist = 0;
+                    curr.speed = 0;
+                    curr.heading = 0;
+                } else {
+                    const prev = rawPoints[i - 1];
+                    curr.timeOffset = (curr.time - rawPoints[0].time) / 1000;
+                    const distKm = getDistanceFromLatLonInKm(prev.lat, prev.lon, curr.lat, curr.lon);
+                    cumulativeDist += distKm;
+                    curr.distance = distKm;
+                    curr.cumulativeDist = cumulativeDist;
+
+                    const timeDiffSec = (curr.time - prev.time) / 1000;
+                    if (timeDiffSec > 0) {
+                        speed = (distKm / (timeDiffSec / 3600));
+                    } else {
+                        speed = 0;
+                    }
+                    curr.speed = Math.max(0, speed);
+
+                    heading = calculateHeading(prev.lat, prev.lon, curr.lat, curr.lon);
+                    curr.heading = heading;
+                }
+                trackPoints.push(curr);
+            }
+
+            for (let i = 0; i < trackPoints.length; i++) {
+                if (i === 0 && trackPoints.length > 1) {
+                    trackPoints[0].heading = trackPoints[1].heading;
+                } else if (trackPoints[i].heading === 0 && i > 0) {
+                    trackPoints[i].heading = trackPoints[i - 1].heading;
+                }
+            }
+
+            totalFlightDuration = trackPoints[trackPoints.length - 1].timeOffset;
+            totalFlightDistance = trackPoints[trackPoints.length - 1].cumulativeDist;
+            homeLocation = { lat: trackPoints[0].lat, lon: trackPoints[0].lon };
+
+            document.getElementById('fileName').textContent = fileName;
+            document.getElementById('fileStats').textContent = `${trackPoints.length} pts (${formatTime(totalFlightDuration)})`;
+            document.getElementById('fileInfo').classList.remove('hidden');
+            document.getElementById('totalTimeDisplay').textContent = formatTime(totalFlightDuration);
+            document.getElementById('timeScrubber').max = totalFlightDuration;
+            document.getElementById('timeScrubber').value = 0;
+
+            document.getElementById('playBtn').disabled = false;
+            document.getElementById('resetBtn').disabled = false;
+            document.getElementById('exportBtn').disabled = false;
+
+            document.getElementById('statusText').textContent = 'Flight Loaded';
+
+            initMapLayers();
+            playbackTime = 0;
+            updatePlayback(0);
+        }
+
+        function initMapLayers() {
+            if (flownPolyline) map.removeLayer(flownPolyline);
+            if (unflownPolyline) map.removeLayer(unflownPolyline);
+            if (droneMarker) map.removeLayer(droneMarker);
+
+            const latlngs = trackPoints.map(p => [p.lat, p.lon]);
+            const flownColor = document.getElementById('flownColorPicker').value;
+            const unflownColor = document.getElementById('unflownColorPicker').value;
+            const showUnflown = document.getElementById('showUnflownToggle').checked;
+
+            flownPolyline = L.polyline([], { color: flownColor, weight: 4, opacity: 0.9 }).addTo(map);
+            if (showUnflown) {
+                unflownPolyline = L.polyline(latlngs, { color: unflownColor, weight: 3, opacity: 0.6, dashArray: '4, 8' }).addTo(map);
+            } else {
+                unflownPolyline = L.polyline([], { color: unflownColor, weight: 3, opacity: 0.6, dashArray: '4, 8' }).addTo(map);
+            }
+
+            const startPt = trackPoints[0];
+            const droneColor = document.getElementById('droneColorPicker').value;
+            
+            const arrowIcon = L.divIcon({
+                className: 'drone-arrow-icon',
+                html: `<div id="droneArrowEl" style="transform: rotate(0deg); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="${droneColor}">
+                        <path d="M12 2L4.5 20.29l0.71 0.71L12 18l6.79 3 0.71-0.71z"/>
+                    </svg>
+                </div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+
+            droneMarker = L.marker([startPt.lat, startPt.lon], { icon: arrowIcon }).addTo(map);
+            map.setView([startPt.lat, startPt.lon], 16);
+        }
+
+        function updateColors() {
+            if (trackPoints.length === 0) return;
+            const flownColor = document.getElementById('flownColorPicker').value;
+            const unflownColor = document.getElementById('unflownColorPicker').value;
+            const droneColor = document.getElementById('droneColorPicker').value;
+            const showUnflown = document.getElementById('showUnflownToggle').checked;
+
+            if (flownPolyline) flownPolyline.setStyle({ color: flownColor });
+            if (unflownPolyline) {
+                unflownPolyline.setStyle({ color: unflownColor });
+                if (!showUnflown) {
+                    unflownPolyline.setLatLngs([]);
+                } else {
+                    const latlngs = trackPoints.map(p => [p.lat, p.lon]);
+                    unflownPolyline.setLatLngs(latlngs);
+                }
+            }
+
+            const arrowSvg = document.querySelector('#droneArrowEl svg');
+            if (arrowSvg) {
+                arrowSvg.setAttribute('fill', droneColor);
+            }
+
+            updatePlayback(playbackTime);
+        }
+
+        function loadSampleFlight() {
+            const centerLat = 48.8584;
+            const centerLon = 2.2945;
+            let rawPoints = [];
+            const numPoints = 360;
+            const baseTime = Date.now();
+
+            for (let i = 0; i < numPoints; i++) {
+                const angle = (i / numPoints) * Math.PI * 4;
+                const radius = 0.006 * (1 - i / (numPoints * 1.5));
+                const lat = centerLat + Math.sin(angle) * radius;
+                const lon = centerLon + Math.cos(angle) * radius * 1.4;
+                const ele = 90 + Math.sin(i * 0.08) * 35;
+                const time = baseTime + (i * 1000);
+
+                rawPoints.push({ lat, lon, ele, time });
+            }
+
+            buildTrackData(rawPoints, 'Sample_Drone_Flight.gpx');
+            showToast('Sample drone flight loaded!');
+        }
+
+        function togglePlay() {
+            if (trackPoints.length === 0) return;
+            isPlaying = !isPlaying;
+            const playIcon = document.getElementById('playIcon');
+            if (isPlaying) {
+                playIcon.className = 'fa-solid fa-pause';
+                if (playbackTime >= totalFlightDuration) {
+                    playbackTime = 0;
+                }
+                lastTimestamp = performance.now();
+                animationFrameId = requestAnimationFrame(playbackLoop);
+            } else {
+                playIcon.className = 'fa-solid fa-play';
+                cancelAnimationFrame(animationFrameId);
+            }
+        }
+
+        function resetPlayback() {
+            isPlaying = false;
+            cancelAnimationFrame(animationFrameId);
+            document.getElementById('playIcon').className = 'fa-solid fa-play';
+            playbackTime = 0;
+            updatePlayback(0);
+        }
+
+        function setSpeed(spd) {
+            playbackSpeed = spd;
+            [1, 2, 5, 10].forEach(s => {
+                const btn = document.getElementById(`spd${s}`);
+                if (s === spd) {
+                    btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 text-white transition';
+                } else {
+                    btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition';
+                }
+            });
+        }
+
+        function onScrub(val) {
+            playbackTime = parseFloat(val);
+            updatePlayback(playbackTime);
+        }
+
+        function playbackLoop(timestamp) {
+            if (!isPlaying) return;
+            const delta = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            playbackTime += delta * playbackSpeed;
+            if (playbackTime >= totalFlightDuration) {
+                playbackTime = totalFlightDuration;
+                isPlaying = false;
+                document.getElementById('playIcon').className = 'fa-solid fa-play';
+                updatePlayback(playbackTime);
+                return;
+            }
+
+            updatePlayback(playbackTime);
+            animationFrameId = requestAnimationFrame(playbackLoop);
+        }
+
+        function interpolatePoint(timeSec) {
+            if (timeSec <= 0) return trackPoints[0];
+            if (timeSec >= totalFlightDuration) return trackPoints[trackPoints.length - 1];
+
+            let idx = 0;
+            for (let i = 0; i < trackPoints.length - 1; i++) {
+                if (trackPoints[i].timeOffset <= timeSec && trackPoints[i + 1].timeOffset >= timeSec) {
+                    idx = i;
+                    break;
+                }
+            }
+
+            const p1 = trackPoints[idx];
+            const p2 = trackPoints[idx + 1];
+            const tSpan = p2.timeOffset - p1.timeOffset;
+            const factor = tSpan > 0 ? (timeSec - p1.timeOffset) / tSpan : 0;
+
+            return {
+                lat: p1.lat + (p2.lat - p1.lat) * factor,
+                lon: p1.lon + (p2.lon - p1.lon) * factor,
+                ele: p1.ele + (p2.ele - p1.ele) * factor,
+                speed: p1.speed + (p2.speed - p1.speed) * factor,
+                cumulativeDist: p1.cumulativeDist + (p2.cumulativeDist - p1.cumulativeDist) * factor,
+                heading: p1.heading
+            };
+        }
+
+        function updatePlayback(timeSec) {
+            if (trackPoints.length === 0) return;
+
+            const currPt = interpolatePoint(timeSec);
+            document.getElementById('timeScrubber').value = timeSec;
+            document.getElementById('currentTimeDisplay').textContent = formatTime(timeSec);
+
+            // Rounded integer telemetry values
+            document.getElementById('hudSpeed').innerHTML = `${Math.round(currPt.speed)} <span class="text-xs font-normal text-slate-400">km/h</span>`;
+            document.getElementById('hudAltitude').innerHTML = `${Math.round(currPt.ele)} <span class="text-xs font-normal text-slate-400">m</span>`;
+            document.getElementById('hudTime').textContent = formatTime(timeSec);
+            document.getElementById('hudDistance').innerHTML = `${currPt.cumulativeDist.toFixed(2)} <span class="text-xs font-normal text-slate-400">km</span>`;
+            
+            const distHome = getDistanceFromLatLonInKm(homeLocation.lat, homeLocation.lon, currPt.lat, currPt.lon) * 1000;
+            document.getElementById('hudHomeDist').innerHTML = `${Math.round(distHome)} <span class="text-xs font-normal text-slate-400">m</span>`;
+
+            droneMarker.setLatLng([currPt.lat, currPt.lon]);
+            map.setView([currPt.lat, currPt.lon], map.getZoom(), { animate: false });
+
+            const arrowEl = document.getElementById('droneArrowEl');
+            if (arrowEl) {
+                arrowEl.style.transform = `rotate(${currPt.heading}deg)`;
+            }
+
+            let splitIndex = trackPoints.findIndex(p => p.timeOffset > timeSec);
+            if (splitIndex === -1) splitIndex = trackPoints.length;
+
+            const flownPts = trackPoints.slice(0, splitIndex).map(p => [p.lat, p.lon]);
+            flownPts.push([currPt.lat, currPt.lon]);
+            flownPolyline.setLatLngs(flownPts);
+
+            if (document.getElementById('showUnflownToggle').checked) {
+                const unflownPts = [[currPt.lat, currPt.lon]];
+                if (splitIndex < trackPoints.length) {
+                    unflownPts.push(...trackPoints.slice(splitIndex).map(p => [p.lat, p.lon]));
+                }
+                unflownPolyline.setLatLngs(unflownPts);
+            }
+        }
+
+        // --- Accelerated Non-Realtime GPU Video Export ---
+        async function startExport() {
+            if (trackPoints.length === 0 || isExporting) return;
+            isExporting = true;
+            exportCancelRequested = false;
+
+            const exportBtn = document.getElementById('exportBtn');
+            const cancelBtn = document.getElementById('cancelExportBtn');
+            const progressContainer = document.getElementById('exportProgressContainer');
+            const progressBar = document.getElementById('exportProgressBar');
+            const percentageEl = document.getElementById('exportPercentage');
+            const statusText = document.getElementById('exportStatusText');
+
+            exportBtn.disabled = true;
+            cancelBtn.disabled = false;
+            progressContainer.classList.remove('hidden');
+
+            const res = parseInt(document.getElementById('exportRes').value);
+            const fps = parseInt(document.getElementById('exportFps').value);
+            const bitrate = parseInt(document.getElementById('exportBitrate').value);
+
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = res;
+            exportCanvas.height = res;
+            const exportCtx = exportCanvas.getContext('2d');
+
+            const stream = exportCanvas.captureStream(fps);
+            let mimeType = 'video/webm;codecs=vp9';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'video/webm';
+            }
+
+            try {
+                mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate });
+            } catch (err) {
+                showToast('MediaRecorder not supported on this browser.');
+                cleanupExport();
+                return;
+            }
+
+            recordedChunks = [];
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                if (!exportCancelRequested) {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `drone_flight_${res}x${res}_${fps}fps.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    showToast('Video exported successfully!');
+                }
+                cleanupExport();
+            };
+
+            mediaRecorder.start();
+
+            if (isPlaying) togglePlay();
+
+            const totalFrames = Math.ceil(totalFlightDuration * fps);
+            const frameDuration = 1 / fps;
+            const previewEl = document.getElementById('previewWrapper');
+
+            statusText.textContent = 'Rendering frames at maximum GPU speed...';
+
+            for (let currentFrame = 0; currentFrame < totalFrames; currentFrame++) {
+                if (exportCancelRequested) break;
+                const t = currentFrame * frameDuration;
+                if (t > totalFlightDuration) break;
+
+                updatePlayback(t);
+
+                // Capture high fidelity snapshot of preview container using html2canvas
+                try {
+                    const snapshot = await html2canvas(previewEl, {
+                        scale: res / previewEl.offsetWidth,
+                        useCORS: true,
+                        logging: false,
+                        backgroundColor: '#0f172a'
+                    });
+                    exportCtx.clearRect(0, 0, res, res);
+                    exportCtx.drawImage(snapshot, 0, 0, res, res);
+                } catch (err) {
+                    console.error('Snapshot frame error:', err);
+                }
+
+                const percent = Math.round(((currentFrame + 1) / totalFrames) * 100);
+                progressBar.style.width = `${percent}%`;
+                percentageEl.textContent = `${percent}%`;
+
+                // Yield briefly to event loop for stream ingestion without real-time waiting
+                await new Promise(r => setTimeout(r, 4));
+            }
+
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+        }
+
+        function cancelExport() {
+            exportCancelRequested = true;
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            showToast('Video export cancelled.');
+            cleanupExport();
+        }
+
+        function cleanupExport() {
+            isExporting = false;
+            document.getElementById('exportBtn').disabled = false;
+            document.getElementById('cancelExportBtn').disabled = true;
+            document.getElementById('exportProgressContainer').classList.add('hidden');
+            document.getElementById('exportProgressBar').style.width = '0%';
+        }
+
+        function formatTime(sec) {
+            const mins = Math.floor(sec / 60);
+            const secs = Math.floor(sec % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function deg2rad(deg) { return deg * (Math.PI / 180); }
+
+        function calculateHeading(lat1, lon1, lat2, lon2) {
+            const dLon = deg2rad(lon2 - lon1);
+            const y = Math.sin(dLon) * Math.cos(deg2rad(lat2));
+            const x = Math.cos(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) -
+                      Math.sin(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.cos(dLon);
+            let brng = Math.atan2(y, x);
+            brng = brng * (180 / Math.PI);
+            return (brng + 360) % 360;
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-24 right-6 z-50 bg-slate-900 border border-slate-700 text-slate-200 px-4 py-3 rounded-xl shadow-2xl text-xs font-medium flex items-center gap-3 animate-bounce';
+            toast.innerHTML = `<i class="fa-solid fa-circle-info text-brand-400 text-sm"></i> <span>${message}</span>`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
+        }
+    </script>
 </body>
 </html>
