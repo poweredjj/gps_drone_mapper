@@ -71,7 +71,7 @@
         .widget-size-large p.text-sm { font-size: 18px !important; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white pb-28">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white pb-12">
 
     <!-- Top Navigation Header -->
     <header class="glass-panel border-b border-slate-800 sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
@@ -125,7 +125,7 @@
                 </div>
             </div>
 
-            <!-- Map Settings, Language & Widget Size -->
+            <!-- Map Settings, Language, Widget Size & Zoom Panel -->
             <div class="glass-panel rounded-2xl p-5 shadow-xl space-y-4">
                 <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                     <i class="fa-solid fa-map text-brand-400"></i> Map & HUD Settings
@@ -135,7 +135,7 @@
                     <div>
                         <label class="block text-xs font-medium text-slate-400 mb-1">Basemap</label>
                         <select id="tileLayerSelect" onchange="changeTileLayer()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                            <option value="osm" selected>OpenStreetMap</option>
+                            <option value="osm" selected>OpenStreetMap (Voyager)</option>
                             <option value="satellite">Satellite (Esri)</option>
                             <option value="hybrid">Hybrid (Satellite + Labels)</option>
                             <option value="dark">Dark Matter (Carto)</option>
@@ -155,13 +155,25 @@
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Widget Size</label>
-                    <select id="widgetSizeSelect" onchange="changeWidgetSize()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                        <option value="small">Small</option>
-                        <option value="normal">Normal</option>
-                        <option value="large" selected>Large</option>
-                    </select>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Widget Size</label>
+                        <select id="widgetSizeSelect" onchange="changeWidgetSize()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                            <option value="small">Small</option>
+                            <option value="normal">Normal</option>
+                            <option value="large" selected>Large</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Zoom Level</label>
+                        <select id="mapZoomScaleSelect" onchange="changeMapZoomScale()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+                            <option value="0.25">0.25x</option>
+                            <option value="0.5">0.5x</option>
+                            <option value="1.0" selected>1.0x (Normal)</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2.0">2.0x</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -185,20 +197,6 @@
                             <input type="color" id="droneColorPicker" value="#ef4444" onchange="updateColors()" class="w-9 h-9 rounded-lg bg-slate-900 border border-slate-700 cursor-pointer p-1">
                             <span class="text-xs text-slate-400">Heading</span>
                         </div>
-                    </div>
-                </div>
-
-                <div class="pt-2 border-t border-slate-800">
-                    <div class="flex items-center justify-between mb-2">
-                        <label class="text-xs font-medium text-slate-400">Unflown Route Path</label>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="showUnflownToggle" onchange="updateColors()" class="sr-only peer">
-                            <div class="w-7 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
-                        </label>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <input type="color" id="unflownColorPicker" value="#64748b" onchange="updateColors()" class="w-9 h-9 rounded-lg bg-slate-900 border border-slate-700 cursor-pointer p-1">
-                        <span class="text-xs text-slate-400">Upcoming Path (Dashed)</span>
                     </div>
                 </div>
             </div>
@@ -279,15 +277,16 @@
 
         </div>
 
-        <!-- Right Column: 1:1 Square Map Preview & Overlay Widgets (7 Cols) -->
-        <div class="lg:col-span-7 flex flex-col items-center w-full max-w-[650px] mx-auto">
+        <!-- Right Column: 1:1 Square Map Preview & Playback Panel (7 Cols) -->
+        <div class="lg:col-span-7 flex flex-col items-center w-full max-w-[650px] mx-auto space-y-4">
             
+            <!-- Map Preview Container (Captured by html2canvas) -->
             <div id="previewWrapper" class="w-full aspect-square rounded-2xl shadow-2xl border border-slate-700 bg-slate-900 relative overflow-hidden flex flex-col">
                 
                 <!-- Leaflet Map Canvas Container -->
-                <div id="map" class="w-full h-full z-10"></div>
+                <div id="map" class="w-full h-full z-10 transition-transform duration-200"></div>
 
-                <!-- Draggable Telemetry Overlay HUD Widgets (Static widths to prevent jitter) -->
+                <!-- Draggable Telemetry Overlay HUD Widgets (Static widths to prevent jitter, initial starting layout) -->
                 
                 <!-- Speed Widget (Top Left) -->
                 <div id="widgetSpeed" class="hud-widget widget-size-large absolute top-5 left-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
@@ -342,47 +341,39 @@
 
             </div>
 
+            <!-- Playback Panel (Placed under preview, NOT captured during export) -->
+            <div class="w-full glass-panel rounded-2xl p-4 shadow-xl flex flex-col md:flex-row items-center gap-4">
+                
+                <!-- Controls & Speed Multipliers -->
+                <div class="flex items-center space-x-3 shrink-0">
+                    <button onclick="togglePlay()" id="playBtn" disabled class="w-11 h-11 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-lg shadow-brand-500/20 transition">
+                        <i class="fa-solid fa-play text-base" id="playIcon"></i>
+                    </button>
+                    <button onclick="resetPlayback()" id="resetBtn" disabled class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 flex items-center justify-center transition border border-slate-700">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+
+                    <!-- Speed Selector Pills -->
+                    <div class="flex items-center bg-slate-900 rounded-xl p-1 border border-slate-800 ml-2">
+                        <button onclick="setSpeed(1)" id="spd1" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 text-white transition">1x</button>
+                        <button onclick="setSpeed(2)" id="spd2" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition">2x</button>
+                        <button onclick="setSpeed(5)" id="spd5" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition">5x</button>
+                        <button onclick="setSpeed(10)" id="spd10" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition">10x</button>
+                    </div>
+                </div>
+
+                <!-- Full Width Timeline Scrubber -->
+                <div class="flex-1 w-full flex items-center gap-3">
+                    <span class="text-xs font-semibold text-brand-400 min-w-[45px] text-right font-mono" id="currentTimeDisplay">00:00</span>
+                    <input type="range" id="timeScrubber" min="0" max="100" value="0" step="0.05" oninput="onScrub(this.value)" class="flex-1 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-500">
+                    <span class="text-xs font-semibold text-slate-400 min-w-[45px] font-mono" id="totalTimeDisplay">00:00</span>
+                </div>
+
+            </div>
+
         </div>
 
     </main>
-
-    <!-- Full-Width Bottom Playback Engine Panel -->
-    <footer class="fixed bottom-0 left-0 right-0 z-40 glass-panel border-t border-slate-800 px-6 py-3 shadow-2xl bg-slate-950/95 backdrop-blur-xl">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-4">
-            
-            <!-- Controls & Speed Multipliers -->
-            <div class="flex items-center space-x-3 shrink-0">
-                <button onclick="togglePlay()" id="playBtn" disabled class="w-11 h-11 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-lg shadow-brand-500/20 transition">
-                    <i class="fa-solid fa-play text-base" id="playIcon"></i>
-                </button>
-                <button onclick="resetPlayback()" id="resetBtn" disabled class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 flex items-center justify-center transition border border-slate-700">
-                    <i class="fa-solid fa-rotate-left"></i>
-                </button>
-
-                <!-- Speed Selector Pills -->
-                <div class="flex items-center bg-slate-900 rounded-xl p-1 border border-slate-800 ml-2">
-                    <button onclick="setSpeed(1)" id="spd1" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 text-white transition">1x</button>
-                    <button onclick="setSpeed(2)" id="spd2" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition">2x</button>
-                    <button onclick="setSpeed(5)" id="spd5" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition">5x</button>
-                    <button onclick="setSpeed(10)" id="spd10" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition">10x</button>
-                </div>
-            </div>
-
-            <!-- Full Width Timeline Scrubber -->
-            <div class="flex-1 w-full flex items-center gap-3">
-                <span class="text-xs font-semibold text-brand-400 min-w-[45px] text-right font-mono" id="currentTimeDisplay">00:00</span>
-                <input type="range" id="timeScrubber" min="0" max="100" value="0" step="0.05" oninput="onScrub(this.value)" class="flex-1 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-500">
-                <span class="text-xs font-semibold text-slate-400 min-w-[45px] font-mono" id="totalTimeDisplay">00:00</span>
-            </div>
-
-            <!-- Time Readout Badge -->
-            <div class="hidden xl:flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 font-medium shrink-0">
-                <i class="fa-solid fa-clock text-brand-400"></i>
-                <span>Elapsed Flight Time</span>
-            </div>
-
-        </div>
-    </footer>
 
     <!-- Export Process Modal Window -->
     <div id="exportModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-4">
@@ -443,7 +434,6 @@
         let lastTimestamp = null;
 
         let flownPolyline = null;
-        let unflownPolyline = null;
         let droneMarker = null;
 
         let isExporting = false;
@@ -451,11 +441,11 @@
         let recordedChunks = [];
         let exportCancelRequested = false;
 
-        // Tile layer definitions
+        // Tile layer definitions (Carto Voyager for OpenStreetMap to avoid 403 blocks)
         const tileConfigs = {
             osm: {
-                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                options: { maxZoom: 19, attribution: '© OpenStreetMap' }
+                url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                options: { maxZoom: 19, attribution: '© OpenStreetMap, © CARTO' }
             },
             satellite: {
                 url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -535,6 +525,16 @@
                 w.classList.remove('widget-size-small', 'widget-size-normal', 'widget-size-large');
                 w.classList.add(`widget-size-${size}`);
             });
+        }
+
+        function changeMapZoomScale() {
+            const scale = parseFloat(document.getElementById('mapZoomScaleSelect').value);
+            const mapEl = document.getElementById('map');
+            mapEl.style.transform = `scale(${scale})`;
+            mapEl.style.transformOrigin = 'center center';
+            setTimeout(() => {
+                if (map) map.invalidateSize();
+            }, 200);
         }
 
         // --- HUD Widget Toggles & Drag Logic ---
@@ -740,20 +740,11 @@
 
         function initMapLayers() {
             if (flownPolyline) map.removeLayer(flownPolyline);
-            if (unflownPolyline) map.removeLayer(unflownPolyline);
             if (droneMarker) map.removeLayer(droneMarker);
 
-            const latlngs = trackPoints.map(p => [p.lat, p.lon]);
             const flownColor = document.getElementById('flownColorPicker').value;
-            const unflownColor = document.getElementById('unflownColorPicker').value;
-            const showUnflown = document.getElementById('showUnflownToggle').checked;
 
             flownPolyline = L.polyline([], { color: flownColor, weight: 4, opacity: 0.9 }).addTo(map);
-            if (showUnflown) {
-                unflownPolyline = L.polyline(latlngs, { color: unflownColor, weight: 3, opacity: 0.6, dashArray: '4, 8' }).addTo(map);
-            } else {
-                unflownPolyline = L.polyline([], { color: unflownColor, weight: 3, opacity: 0.6, dashArray: '4, 8' }).addTo(map);
-            }
 
             const startPt = trackPoints[0];
             const droneColor = document.getElementById('droneColorPicker').value;
@@ -776,20 +767,9 @@
         function updateColors() {
             if (trackPoints.length === 0) return;
             const flownColor = document.getElementById('flownColorPicker').value;
-            const unflownColor = document.getElementById('unflownColorPicker').value;
             const droneColor = document.getElementById('droneColorPicker').value;
-            const showUnflown = document.getElementById('showUnflownToggle').checked;
 
             if (flownPolyline) flownPolyline.setStyle({ color: flownColor });
-            if (unflownPolyline) {
-                unflownPolyline.setStyle({ color: unflownColor });
-                if (!showUnflown) {
-                    unflownPolyline.setLatLngs([]);
-                } else {
-                    const latlngs = trackPoints.map(p => [p.lat, p.lon]);
-                    unflownPolyline.setLatLngs(latlngs);
-                }
-            }
 
             const arrowSvg = document.querySelector('#droneArrowEl svg');
             if (arrowSvg) {
@@ -944,14 +924,6 @@
             const flownPts = trackPoints.slice(0, splitIndex).map(p => [p.lat, p.lon]);
             flownPts.push([currPt.lat, currPt.lon]);
             flownPolyline.setLatLngs(flownPts);
-
-            if (document.getElementById('showUnflownToggle').checked) {
-                const unflownPts = [[currPt.lat, currPt.lon]];
-                if (splitIndex < trackPoints.length) {
-                    unflownPts.push(...trackPoints.slice(splitIndex).map(p => [p.lat, p.lon]));
-                }
-                unflownPolyline.setLatLngs(unflownPts);
-            }
         }
 
         // --- Accelerated Non-Realtime GPU Video Export Modal Suite ---
