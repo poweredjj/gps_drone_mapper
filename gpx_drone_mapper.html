@@ -569,13 +569,23 @@
                 mapEl.classList.remove('dark-tile-filter');
             }
 
-            if (config.labels || type === 'satellite' || type === 'hybrid') {
-                window.hybridLabelsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-                    maxZoom: 19,
-                    attribution: 'Esri Reference',
-                    className: 'esri-labels-tile-layer'
-                }).addTo(map);
-            }
+if (config.labels || type === 'satellite' || type === 'hybrid') {
+    window.hybridLabelsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Esri Reference'
+    }).addTo(map);
+
+    // Apply scaling to the layer container upon load
+    setTimeout(() => {
+        const scaleValue = document.getElementById('mapLabelSizeSelect').value;
+        const container = window.hybridLabelsLayer.getContainer();
+        if (container) {
+            container.style.transform = `scale(${scaleValue})`;
+            container.style.transformOrigin = 'center center';
+            container.style.overflow = 'visible';
+        }
+    }, 50);
+}
         }
 
         function changeTileLayer() {
