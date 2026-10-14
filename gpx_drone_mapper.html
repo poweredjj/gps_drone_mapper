@@ -46,6 +46,11 @@
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
+        /* Dark Mode Tile Filter (Keyless OSM Dark Theme) */
+        .dark-tile-filter .leaflet-tile-pane {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+
         /* Draggable HUD Widget Styling & Sizes */
         .hud-widget {
             user-select: none;
@@ -135,11 +140,11 @@
                     <div>
                         <label class="block text-xs font-medium text-slate-400 mb-1">Basemap</label>
                         <select id="tileLayerSelect" onchange="changeTileLayer()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                            <option value="osm" selected>OpenStreetMap (Voyager)</option>
-                            <option value="satellite">Satellite (Esri)</option>
+                            <option value="osm" selected>OpenStreetMap</option>
+                            <option value="satellite">Satellite (Esri + Labels)</option>
                             <option value="hybrid">Hybrid (Satellite + Labels)</option>
-                            <option value="dark">Dark Matter (Carto)</option>
-                            <option value="light">Positron (Carto)</option>
+                            <option value="dark">Dark Matter (OSM Filter)</option>
+                            <option value="light">Positron (OSM Light)</option>
                         </select>
                     </div>
                     <div>
@@ -441,27 +446,37 @@
         let recordedChunks = [];
         let exportCancelRequested = false;
 
-        // Tile layer definitions (Carto Voyager for OpenStreetMap to avoid 403 blocks)
+        // Tile layer definitions (using keyless official OpenStreetMap & Esri layers with labels)
         const tileConfigs = {
             osm: {
-                url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                options: { maxZoom: 19, attribution: '© OpenStreetMap, © CARTO' }
+                url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors' },
+                labels: false,
+                dark: false
             },
             satellite: {
                 url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                options: { maxZoom: 19, attribution: 'Tiles © Esri' }
+                options: { maxZoom: 19, attribution: 'Tiles © Esri' },
+                labels: true,
+                dark: false
             },
             hybrid: {
                 url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                options: { maxZoom: 19, attribution: 'Tiles © Esri' }
+                options: { maxZoom: 19, attribution: 'Tiles © Esri' },
+                labels: true,
+                dark: false
             },
             dark: {
-                url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                options: { maxZoom: 19, attribution: '© CARTO' }
+                url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors' },
+                labels: false,
+                dark: true
             },
             light: {
-                url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-                options: { maxZoom: 19, attribution: '© CARTO' }
+                url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors' },
+                labels: false,
+                dark: false
             }
         };
 
@@ -491,20 +506,27 @@
             if (tileLayer) {
                 map.removeLayer(tileLayer);
             }
+            if (window.hybridLabelsLayer) {
+                map.removeLayer(window.hybridLabelsLayer);
+                window.hybridLabelsLayer = null;
+            }
+
             const config = tileConfigs[type] || tileConfigs.osm;
             tileLayer = L.tileLayer(config.url, config.options).addTo(map);
 
-            if (type === 'hybrid') {
-                if (window.hybridLabelsLayer) {
-                    map.removeLayer(window.hybridLabelsLayer);
-                }
+            const mapEl = document.getElementById('map');
+            if (config.dark) {
+                mapEl.classList.add('dark-tile-filter');
+            } else {
+                mapEl.classList.remove('dark-tile-filter');
+            }
+
+            // Add Esri World Boundaries and Places reference layer for satellite/hybrid or whenever labels are requested
+            if (config.labels || type === 'satellite' || type === 'hybrid') {
                 window.hybridLabelsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
                     maxZoom: 19,
                     attribution: 'Esri Reference'
                 }).addTo(map);
-            } else if (window.hybridLabelsLayer) {
-                map.removeLayer(window.hybridLabelsLayer);
-                window.hybridLabelsLayer = null;
             }
         }
 
