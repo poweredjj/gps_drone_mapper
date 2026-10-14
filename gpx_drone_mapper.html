@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPX Drone Mapper & Exporter</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b0f19',
+                        cardBg: '#131c2e',
+                        accentBlue: '#38bdf8',
+                        accentGlow: '#0ea5e9'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet JS Library -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- html2canvas for Export Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .drone-icon-container {
+            background: transparent;
+            border: none;
+        }
+        
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(56, 189, 248, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(56, 189, 248, 0.8); }
+        }
+        .map-glow {
+            animation: pulseGlow 3s infinite ease-in-out;
+        }
+
+        .draggable-telemetry {
+            position: absolute;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+            z-index: 20;
+        }
+        .draggable-telemetry:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="bg-darkBg text-slate-100 font-sans min-h-screen flex flex-col selection:bg-accentBlue selection:text-slate-950">
+
+    <header class="bg-cardBg/90 backdrop-blur border-b border-slate-800 py-4 px-6 sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                    <i class="fa-solid fa-drone text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">GPX Drone Mapper & Exporter</h1>
+                    <p class="text-xs text-slate-400">Professional 1:1 real-time drone flight visualizer & high-speed renderer</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="resetTelemetryLayout()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700/60 transition flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-arrows-rotate text-cyan-400"></i> Reset Layout
+                </button>
+                <button onclick="loadSampleData()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-xl border border-slate-700/60 transition flex items-center gap-2 shadow">
+                    <i class="fa-solid fa-bolt text-amber-400"></i> Load Sample Flight
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Left Panel: Controls, GPX Upload, Settings -->
+        <section class="lg:col-span-4 space-y-6">
+            
+            <!-- GPX File Upload Card -->
+            <div class="bg-cardBg border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-file-arrow-up text-accentBlue"></i> GPX Route Source
+                </h2>
+                
+                <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-accentBlue rounded-xl p-6 text-center cursor-pointer transition bg-slate-900/50 group">
+                    <input type="file" id="gpxFileInput" accept=".gpx" class="hidden">
+                    <div class="w-12 h-12 rounded-full bg-slate-800 group-hover:bg-accentBlue/10 flex items-center justify-center mx-auto mb-3 transition">
+                        <i class="fa-solid fa-cloud-arrow-up text-slate-400 group-hover:text-accentBlue text-xl"></i>
+                    </div>
+                    <p class="text-sm font-medium text-slate-200">Drag & drop GPX file here</p>
+                    <p class="text-xs text-slate-400 mt-1">or <span class="text-accentBlue underline">click to browse</span></p>
+                </div>
+
+                <div id="fileInfo" class="mt-4 hidden bg-slate-900/80 rounded-xl p-3 border border-slate-800 text-xs space-y-1">
+                    <p class="font-medium text-slate-200 truncate" id="fileNameDisplay">-</p>
+                    <div class="flex justify-between text-slate-400">
+                        <span>Points: <strong id="filePointsCount" class="text-slate-200">0</strong></span>
+                        <span>Duration: <strong id="fileDurationDisplay" class="text-slate-200">00:00</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map Source & Customization Card -->
+            <div class="bg-cardBg border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-map text-accentBlue"></i> Map & Appearance
+                </h2>
+                
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Map Source</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="setMapSource('osm')" id="btnLayerOsm" class="py-2.5 px-3 rounded-xl border border-accentBlue bg-accentBlue/10 text-accentBlue text-xs font-semibold flex flex-col items-center gap-1 transition">
+                            <i class="fa-solid fa-map-location-dot text-base"></i> OSM (Default)
+                        </button>
+                        <button onclick="setMapSource('satellite')" id="btnLayerSatellite" class="py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 text-xs font-semibold flex flex-col items-center gap-1 hover:border-slate-600 transition">
+                            <i class="fa-solid fa-earth-americas text-base"></i> Satellite
+                        </button>
+                        <button onclick="setMapSource('dark')" id="btnLayerDark" class="py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 text-xs font-semibold flex flex-col items-center gap-1 hover:border-slate-600 transition">
+                            <i class="fa-solid fa-moon text-base"></i> Dark
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Language & Label Size Options -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Language</label>
+                        <select id="mapLangSelect" onchange="updateMapTilesConfig()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-accentBlue">
+                            <option value="local" selected>Local Names</option>
+                            <option value="en">English</option>
+                            <option value="pl">Polish (Polski)</option>
+                            <option value="de">German (Deutsch)</option>
+                            <option value="fr">French (Français)</option>
+                            <option value="es">Spanish (Español)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Label & Feature Size</label>
+                        <select id="mapSizeSelect" onchange="updateMapScale()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-accentBlue">
+                            <option value="small">Small</option>
+                            <option value="medium" selected>Medium (Standard)</option>
+                            <option value="large">Large</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Zoom Level Selector -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Map Zoom Level</label>
+                    <select id="zoomLevelSelect" onchange="onZoomChange()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-accentBlue">
+                        <option value="auto">Auto (Fit Route Bounds)</option>
+                        <option value="13">Zoom 13 (Wide)</option>
+                        <option value="14">Zoom 14</option>
+                        <option value="15" selected>Zoom 15 (Standard)</option>
+                        <option value="16">Zoom 16 (Close)</option>
+                        <option value="17">Zoom 17 (Detailed)</option>
+                        <option value="18">Zoom 18 (Macro)</option>
+                    </select>
+                </div>
+
+                <!-- Color Pickers -->
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-400 mb-1">Flown Route</label>
+                        <div class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl p-1.5">
+                            <input type="color" id="colorFlown" value="#3b82f6" class="w-6 h-6 rounded cursor-pointer bg-transparent border-0">
+                            <span class="text-xs font-mono text-slate-300">Flown</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-400 mb-1">Unflown Route</label>
+                        <div class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl p-1.5">
+                            <input type="color" id="colorUnflown" value="#f97316" class="w-6 h-6 rounded cursor-pointer bg-transparent border-0">
+                            <span class="text-xs font-mono text-slate-300">Dashed</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-400 mb-1">Drone Arrow</label>
+                        <div class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-xl p-1.5">
+                            <input type="color" id="colorDrone" value="#ef4444" class="w-6 h-6 rounded cursor-pointer bg-transparent border-0">
+                            <span class="text-xs font-mono text-slate-300">Drone</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Telemetry Overlays Toggle Card -->
+            <div class="bg-cardBg border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-gauge-high text-accentBlue"></i> Telemetry Overlays
+                </h2>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-900 p-2.5 rounded-xl border border-slate-700/60 hover:border-slate-600 transition">
+                        <input type="checkbox" id="chkFlightTime" checked onchange="updateTelemetryVisibility()" class="rounded bg-slate-800 border-slate-700 text-accentBlue focus:ring-0">
+                        <span class="font-medium text-slate-200">Flight Time</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-900 p-2.5 rounded-xl border border-slate-700/60 hover:border-slate-600 transition">
+                        <input type="checkbox" id="chkSpeed" checked onchange="updateTelemetryVisibility()" class="rounded bg-slate-800 border-slate-700 text-accentBlue focus:ring-0">
+                        <span class="font-medium text-slate-200">Speed</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-900 p-2.5 rounded-xl border border-slate-700/60 hover:border-slate-600 transition">
+                        <input type="checkbox" id="chkAlt" checked onchange="updateTelemetryVisibility()" class="rounded bg-slate-800 border-slate-700 text-accentBlue focus:ring-0">
+                        <span class="font-medium text-slate-200">Altitude</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-900 p-2.5 rounded-xl border border-slate-700/60 hover:border-slate-600 transition">
+                        <input type="checkbox" id="chkTotalDist" checked onchange="updateTelemetryVisibility()" class="rounded bg-slate-800 border-slate-700 text-accentBlue focus:ring-0">
+                        <span class="font-medium text-slate-200">Total Distance</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-900 p-2.5 rounded-xl border border-slate-700/60 hover:border-slate-600 transition col-span-2">
+                        <input type="checkbox" id="chkHomeDist" checked onchange="updateTelemetryVisibility()" class="rounded bg-slate-800 border-slate-700 text-accentBlue focus:ring-0">
+                        <span class="font-medium text-slate-200">Distance from Home</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer bg-slate-900 p-2.5 rounded-xl border border-slate-700/60 hover:border-slate-600 transition col-span-2">
+                        <input type="checkbox" id="chkUnflown" checked onchange="updatePreviewAtTime(currentTime)" class="rounded bg-slate-800 border-slate-700 text-accentBlue focus:ring-0">
+                        <span class="font-medium text-slate-200">Show Unflown Route (Dashed)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Export Parameters Card -->
+            <div class="bg-cardBg border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-film text-accentBlue"></i> Video Export Parameters
+                </h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Resolution (1:1 Square)</label>
+                        <select id="exportRes" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-accentBlue">
+                            <option value="512">512 x 512 px (SD)</option>
+                            <option value="720" selected>720 x 720 px (HD)</option>
+                            <option value="1080">1080 x 1080 px (FHD)</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Frame Rate (FPS)</label>
+                            <select id="exportFps" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-accentBlue">
+                                <option value="5">5 FPS</option>
+                                <option value="10" selected>10 FPS (Fast)</option>
+                                <option value="15">15 FPS</option>
+                                <option value="30">30 FPS (Smooth)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Quality / Bitrate</label>
+                            <select id="exportQuality" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-accentBlue">
+                                <option value="0.9">High (90%)</option>
+                                <option value="0.75" selected>Medium (75%)</option>
+                                <option value="0.5">Low (50%)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button onclick="startVideoExport()" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold rounded-xl shadow-lg shadow-cyan-500/20 transition flex items-center justify-center gap-2 text-sm mt-2">
+                        <i class="fa-solid fa-circle-play"></i> Export Video (Tile Preloaded & Fast)
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="lg:col-span-8 space-y-6 flex flex-col items-center">
+            
+            <!-- Square Map Preview Box (1:1) -->
+            <div id="map-preview-box" class="w-full max-w-[640px] aspect-square bg-slate-900 rounded-3xl overflow-hidden border-2 border-slate-700 shadow-2xl relative map-glow flex flex-col">
+                
+                <!-- Leaflet Map Instance Container -->
+                <div id="leafletMap" class="w-full h-full absolute inset-0 z-0"></div>
+
+                <!-- Draggable Telemetry Widget 1: Flight Time -->
+                <div id="overlayFlightTime" class="draggable-telemetry bg-slate-950/85 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-700/80 shadow-lg flex items-center gap-2.5 text-xs font-mono text-slate-200" style="top: 16px; left: 16px;">
+                    <svg class="w-4 h-4 text-accentBlue shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span><strong id="teleTime" class="text-accentBlue">00:00</strong> / <span id="teleTotalTime">00:00</span></span>
+                </div>
+
+                <!-- Draggable Telemetry Widget 2: Speed (Independent) -->
+                <div id="overlaySpeed" class="draggable-telemetry bg-slate-950/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-700/80 shadow-lg flex items-center gap-2 text-xs font-semibold" style="top: 16px; right: 16px;">
+                    <svg class="w-4 h-4 text-cyan-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <span>Speed: <span id="teleSpeed" class="text-accentBlue font-mono text-sm">0</span> <span class="text-slate-400 font-normal text-[11px]">km/h</span></span>
+                </div>
+
+                <!-- Draggable Telemetry Widget 3: Altitude (Independent) -->
+                <div id="overlayAlt" class="draggable-telemetry bg-slate-950/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-700/80 shadow-lg flex items-center gap-2 text-xs font-semibold" style="top: 68px; right: 16px;">
+                    <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+                    <span>Alt: <span id="teleAlt" class="text-emerald-400 font-mono text-sm">0</span> <span class="text-slate-400 font-normal text-[11px]">m</span></span>
+                </div>
+
+                <!-- Draggable Telemetry Widget 4: Total Distance -->
+                <div id="overlayTotalDist" class="draggable-telemetry bg-slate-950/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-700/80 shadow-lg flex items-center gap-2 text-xs font-mono text-slate-300" style="bottom: 16px; left: 16px;">
+                    <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                    <span>Total: <span id="teleDist" class="text-amber-400 font-bold">0.00</span> km</span>
+                </div>
+
+                <!-- Draggable Telemetry Widget 5: Home Distance -->
+                <div id="overlayHomeDist" class="draggable-telemetry bg-slate-950/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-700/80 shadow-lg flex items-center gap-2 text-xs font-mono text-slate-300" style="bottom: 16px; right: 16px;">
+                    <svg class="w-4 h-4 text-cyan-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    <span>Home: <span id="teleHomeDist" class="text-cyan-400 font-bold">0.00</span> km</span>
+                </div>
+
+            </div>
+
+            <!-- Timeline & Controls Card -->
+            <div class="w-full max-w-[640px] bg-cardBg border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                
+                <div class="flex items-center gap-4">
+                    <!-- Play / Pause Button -->
+                    <button onclick="togglePlayback()" id="playPauseBtn" class="w-12 h-12 rounded-2xl bg-accentBlue hover:bg-cyan-400 text-slate-950 flex items-center justify-center shadow-lg shadow-cyan-500/20 transition text-lg font-bold shrink-0">
+                        <i id="playPauseIcon" class="fa-solid fa-play"></i>
+                    </button>
+
+                    <!-- Timeline Slider -->
+                    <div class="flex-1 flex flex-col gap-1">
+                        <div class="flex justify-between text-xs text-slate-400 font-mono">
+                            <span id="sliderCurrentTime">00:00</span>
+                            <span id="sliderTotalTime">00:00</span>
+                        </div>
+                        <input type="range" id="timeSlider" min="0" max="100" value="0" step="0.1" 
+                            class="w-full h-2 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-accentBlue border border-slate-700">
+                    </div>
+
+                    <!-- Speed Multiplier Selector -->
+                    <select id="playbackSpeed" onchange="changeSpeed(this.value)" class="bg-slate-900 border border-slate-700 text-xs font-medium text-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-accentBlue shrink-0">
+                        <option value="1" selected>1.0x</option>
+                        <option value="2">2.0x</option>
+                        <option value="5">5.0x</option>
+                        <option value="10">10.0x</option>
+                    </select>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <div id="exportModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center hidden p-4">
+        <div class="bg-cardBg border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl text-center space-y-5">
+            <div class="w-16 h-16 rounded-2xl bg-accentBlue/10 border border-accentBlue/30 flex items-center justify-center mx-auto text-accentBlue text-2xl animate-pulse">
+                <i class="fa-solid fa-video"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-100">Rendering Video (Optimized)</h3>
+                <p id="exportProgressText" class="text-xs text-slate-400 mt-1">Pre-fetching map tiles...</p>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full bg-slate-900 h-3 rounded-full overflow-hidden border border-slate-700">
+                <div id="exportProgressBar" class="bg-gradient-to-r from-cyan-500 to-blue-600 h-full w-0 transition-all duration-75"></div>
+            </div>
+
+            <!-- Cancel & Download buttons -->
+            <div class="space-y-3 pt-2">
+                <div id="exportDownloadSection" class="hidden">
+                    <a id="downloadVideoBtn" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 text-sm mb-2">
+                        <i class="fa-solid fa-download"></i> Download Rendered Video
+                    </a>
+                </div>
+                <button id="cancelExportBtn" onclick="cancelVideoExport()" class="w-full py-2.5 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/50 text-rose-300 font-semibold rounded-xl text-xs transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-xmark"></i> Cancel Export
+                </button>
+                <button id="closeModalBtn" onclick="closeExportModal()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl text-xs transition hidden">
+                    Close Window
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // --- Sample GPX Data ---
+        const sampleGPXData = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GPX Drone Mapper">
+  <trk>
+    <name>Coastal Drone Flight</name>
+    <trkseg>
+      <trkpt lat="54.3520" lon="18.6466"><ele>15</ele><time>2026-06-06T12:00:00Z</time></trkpt>
+      <trkpt lat="54.3530" lon="18.6480"><ele>22</ele><time>2026-06-06T12:00:02Z</time></trkpt>
+      <trkpt lat="54.3545" lon="18.6500"><ele>30</ele><time>2026-06-06T12:00:04Z</time></trkpt>
+      <trkpt lat="54.3560" lon="18.6520"><ele>40</ele><time>2026-06-06T12:00:06Z</time></trkpt>
+      <trkpt lat="54.3580" lon="18.6535"><ele>50</ele><time>2026-06-06T12:00:08Z</time></trkpt>
+      <trkpt lat="54.3600" lon="18.6540"><ele>55</ele><time>2026-06-06T12:00:10Z</time></trkpt>
+      <trkpt lat="54.3620" lon="18.6530"><ele>60</ele><time>2026-06-06T12:00:12Z</time></trkpt>
+      <trkpt lat="54.3635" lon="18.6510"><ele>55</ele><time>2026-06-06T12:00:14Z</time></trkpt>
+      <trkpt lat="54.3645" lon="18.6485"><ele>45</ele><time>2026-06-06T12:00:16Z</time></trkpt>
+      <trkpt lat="54.3650" lon="18.6460"><ele>35</ele><time>2026-06-06T12:00:18Z</time></trkpt>
+      <trkpt lat="54.3640" lon="18.6435"><ele>25</ele><time>2026-06-06T12:00:20Z</time></trkpt>
+      <trkpt lat="54.3620" lon="18.6420"><ele>20</ele><time>2026-06-06T12:00:22Z</time></trkpt>
+      <trkpt lat="54.3595" lon="18.6425"><ele>15</ele><time>2026-06-06T12:00:24Z</time></trkpt>
+      <trkpt lat="54.3570" lon="18.6440"><ele>12</ele><time>2026-06-06T12:00:26Z</time></trkpt>
+      <trkpt lat="54.3545" lon="18.6455"><ele>10</ele><time>2026-06-06T12:00:28Z</time></trkpt>
+      <trkpt lat="54.3520" lon="18.6466"><ele>10</ele><time>2026-06-06T12:00:30Z</time></trkpt>
+    </trkseg>
+  </trk>
+</gpx>`;
+
+        // --- State Variables ---
+        let gpxPoints = [];
+        let totalDuration = 0;
+        let currentTime = 0;
+        let isPlaying = false;
+        let playbackSpeed = 1.0;
+        let animationFrameId = null;
+        let lastTimestamp = null;
+
+        let map = null;
+        let currentMapSource = 'osm';
+        let currentTileLayer = null;
+        let droneMarker = null;
+        let completedPolyline = null;
+        let unflownPolyline = null;
+        let isExporting = false;
+        let exportCancelled = false;
+        let activeRecorder = null;
+
+        // --- Event Listeners Setup ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            setupDragAndDrop();
+            initDraggableTelemetry();
+            loadGPXContent(sampleGPXData, "Coastal_Drone_Flight.gpx");
+            updateTelemetryVisibility();
+
+            document.getElementById('colorFlown').addEventListener('input', () => updatePreviewAtTime(currentTime));
+            document.getElementById('colorUnflown').addEventListener('input', () => updatePreviewAtTime(currentTime));
+            document.getElementById('colorDrone').addEventListener('input', () => updatePreviewAtTime(currentTime));
+        });
+
+        // --- Leaflet Map Setup (Strictly Locked to Drone) ---
+        function initMap() {
+            map = L.map('leafletMap', {
+                zoomControl: false,
+                attributionControl: false,
+                dragging: false,
+                scrollWheelZoom: false,
+                doubleClickZoom: false,
+                boxZoom: false,
+                keyboard: false,
+                touchZoom: false
+            }).setView([54.3520, 18.6466], 15);
+
+            updateMapTilesConfig();
+        }
+
+        function setMapSource(sourceName) {
+            currentMapSource = sourceName;
+            ['osm', 'satellite', 'dark'].forEach(name => {
+                const btn = document.getElementById(`btnLayer${name.charAt(0).toUpperCase() + name.slice(1)}`);
+                if (name === sourceName) {
+                    btn.className = "py-2.5 px-3 rounded-xl border border-accentBlue bg-accentBlue/10 text-accentBlue text-xs font-semibold flex flex-col items-center gap-1 transition";
+                } else {
+                    btn.className = "py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 text-xs font-semibold flex flex-col items-center gap-1 hover:border-slate-600 transition";
+                }
+            });
+            updateMapTilesConfig();
+        }
+
+        function updateMapTilesConfig() {
+            if (currentTileLayer) {
+                map.removeLayer(currentTileLayer);
+            }
+
+            const lang = document.getElementById('mapLangSelect').value;
+            let tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+            let maxZoom = 19;
+
+            if (currentMapSource === 'satellite') {
+                tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+            } else if (currentMapSource === 'dark') {
+                tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+            } else if (currentMapSource === 'osm') {
+                if (lang === 'pl') {
+                    tileUrl = 'https://tile.openstreetmap.pl/{z}/{x}/{y}.png';
+                } else if (lang === 'de') {
+                    tileUrl = 'https://tile.openstreetmap.de/{z}/{x}/{y}.png';
+                } else if (lang === 'fr') {
+                    tileUrl = 'https://{s}.tile.openstreetmap.fr/osm/{z}/{x}/{y}.png';
+                } else if (lang === 'es') {
+                    tileUrl = 'https://tile.openstreetmap.es/{z}/{x}/{y}.png';
+                } else if (lang === 'en') {
+                    tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+                } else {
+                    tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+                }
+            }
+
+            currentTileLayer = L.tileLayer(tileUrl, {
+                maxZoom: maxZoom,
+                crossOrigin: true
+            });
+            currentTileLayer.addTo(map);
+        }
+
+        function updateMapScale() {
+            const size = document.getElementById('mapSizeSelect').value;
+            const container = document.getElementById('leafletMap');
+            if (size === 'small') {
+                container.style.filter = 'contrast(1.05) saturate(0.9)';
+                container.style.transform = 'scale(0.92)';
+            } else if (size === 'large') {
+                container.style.filter = 'contrast(1.1) saturate(1.1)';
+                container.style.transform = 'scale(1.08)';
+            } else {
+                container.style.filter = 'none';
+                container.style.transform = 'scale(1)';
+            }
+        }
+
+        function onZoomChange() {
+            updatePreviewAtTime(currentTime);
+        }
+
+        function updateTelemetryVisibility() {
+            document.getElementById('overlayFlightTime').style.display = document.getElementById('chkFlightTime').checked ? 'flex' : 'none';
+            document.getElementById('overlaySpeed').style.display = document.getElementById('chkSpeed').checked ? 'flex' : 'none';
+            document.getElementById('overlayAlt').style.display = document.getElementById('chkAlt').checked ? 'flex' : 'none';
+            document.getElementById('overlayTotalDist').style.display = document.getElementById('chkTotalDist').checked ? 'flex' : 'none';
+            document.getElementById('overlayHomeDist').style.display = document.getElementById('chkHomeDist').checked ? 'flex' : 'none';
+        }
+
+        // --- Draggable Telemetry Widgets with Container Constraints ---
+        function initDraggableTelemetry() {
+            const container = document.getElementById('map-preview-box');
+            const draggables = container.querySelectorAll('.draggable-telemetry');
+
+            draggables.forEach(el => {
+                let isDragging = false;
+                let startX, startY, initialLeft, initialTop;
+
+                const onStart = (clientX, clientY) => {
+                    isDragging = true;
+                    startX = clientX;
+                    startY = clientY;
+                    
+                    const rect = el.getBoundingClientRect();
+                    const containerRect = container.getBoundingClientRect();
+                    
+                    initialLeft = rect.left - containerRect.left;
+                    initialTop = rect.top - containerRect.top;
+                    
+                    el.style.left = initialLeft + 'px';
+                    el.style.top = initialTop + 'px';
+                    el.style.right = 'auto';
+                    el.style.bottom = 'auto';
+                };
+
+                el.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    onStart(e.clientX, e.clientY);
+                    e.stopPropagation();
+                });
+
+                el.addEventListener('touchstart', (e) => {
+                    if (e.touches.length === 1) {
+                        onStart(e.touches[0].clientX, e.touches[0].clientY);
+                        e.stopPropagation();
+                    }
+                }, { passive: true });
+
+                const onMove = (clientX, clientY) => {
+                    if (!isDragging) return;
+                    const dx = clientX - startX;
+                    const dy = clientY - startY;
+
+                    let newLeft = initialLeft + dx;
+                    let newTop = initialTop + dy;
+
+                    const containerWidth = container.clientWidth;
+                    const containerHeight = container.clientHeight;
+                    const elWidth = el.offsetWidth;
+                    const elHeight = el.offsetHeight;
+
+                    // Constrain strictly within container bounds
+                    newLeft = Math.max(0, Math.min(containerWidth - elWidth, newLeft));
+                    newTop = Math.max(0, Math.min(containerHeight - elHeight, newTop));
+
+                    el.style.left = newLeft + 'px';
+                    el.style.top = newTop + 'px';
+                };
+
+                window.addEventListener('mousemove', (e) => {
+                    if (isDragging) onMove(e.clientX, e.clientY);
+                });
+
+                window.addEventListener('touchmove', (e) => {
+                    if (isDragging && e.touches.length === 1) {
+                        onMove(e.touches[0].clientX, e.touches[0].clientY);
+                    }
+                }, { passive: true });
+
+                const onEnd = () => {
+                    isDragging = false;
+                };
+
+                window.addEventListener('mouseup', onEnd);
+                window.addEventListener('touchend', onEnd);
+            });
+        }
+
+        function resetTelemetryLayout() {
+            const timeEl = document.getElementById('overlayFlightTime');
+            const speedEl = document.getElementById('overlaySpeed');
+            const altEl = document.getElementById('overlayAlt');
+            const totalDistEl = document.getElementById('overlayTotalDist');
+            const homeDistEl = document.getElementById('overlayHomeDist');
+
+            timeEl.style.top = '16px';
+            timeEl.style.left = '16px';
+            timeEl.style.right = 'auto';
+            timeEl.style.bottom = 'auto';
+
+            speedEl.style.top = '16px';
+            speedEl.style.right = '16px';
+            speedEl.style.left = 'auto';
+            speedEl.style.bottom = 'auto';
+
+            altEl.style.top = '68px';
+            altEl.style.right = '16px';
+            altEl.style.left = 'auto';
+            altEl.style.bottom = 'auto';
+
+            totalDistEl.style.bottom = '16px';
+            totalDistEl.style.left = '16px';
+            totalDistEl.style.right = 'auto';
+            totalDistEl.style.top = 'auto';
+
+            homeDistEl.style.bottom = '16px';
+            homeDistEl.style.right = '16px';
+            homeDistEl.style.left = 'auto';
+            homeDistEl.style.top = 'auto';
+
+            showToast("Telemetry layout reset to default positions.", "success");
+        }
+
+        // --- GPX Parsing & Math Helpers ---
+        function loadSampleData() {
+            loadGPXContent(sampleGPXData, "Coastal_Drone_Flight.gpx");
+            showToast("Sample drone flight loaded successfully!", "success");
+        }
+
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('gpxFileInput');
+
+            dropZone.addEventListener('click', () => fileInput.click());
+            
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-accentBlue', 'bg-accentBlue/5');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('border-accentBlue', 'bg-accentBlue/5');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-accentBlue', 'bg-accentBlue/5');
+                if (e.dataTransfer.files.length > 0) {
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
+        }
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                loadGPXContent(e.target.result, file.name);
+                showToast(`Successfully loaded file: ${file.name}`, "success");
+            };
+            reader.readAsText(file);
+        }
+
+        function loadGPXContent(gpxText, fileName) {
+            try {
+                gpxPoints = parseGPX(gpxText);
+                if (gpxPoints.length === 0) {
+                    showToast("No track points found in GPX file.", "error");
+                    return;
+                }
+
+                totalDuration = gpxPoints[gpxPoints.length - 1].elapsed;
+                currentTime = 0;
+                
+                document.getElementById('fileNameDisplay').textContent = fileName;
+                document.getElementById('filePointsCount').textContent = gpxPoints.length;
+                document.getElementById('fileDurationDisplay').textContent = formatTime(totalDuration);
+                document.getElementById('fileInfo').classList.remove('hidden');
+
+                const slider = document.getElementById('timeSlider');
+                slider.max = totalDuration;
+                slider.value = 0;
+
+                document.getElementById('sliderTotalTime').textContent = formatTime(totalDuration);
+                document.getElementById('teleTotalTime').textContent = formatTime(totalDuration);
+
+                updatePreviewAtTime(0);
+
+            } catch (err) {
+                console.error(err);
+                showToast("Error parsing GPX file format.", "error");
+            }
+        }
+
+        function parseGPX(gpxText) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(gpxText, "text/xml");
+            const trkpts = xmlDoc.getElementsByTagName("trkpt");
+            
+            let points = [];
+            let startTime = null;
+
+            for (let i = 0; i < trkpts.length; i++) {
+                const pt = trkpts[i];
+                const lat = parseFloat(pt.getAttribute("lat"));
+                const lon = parseFloat(pt.getAttribute("lon"));
+                
+                let ele = 0;
+                const eleNode = pt.getElementsByTagName("ele")[0];
+                if (eleNode) ele = parseFloat(eleNode.textContent);
+
+                let time = null;
+                const timeNode = pt.getElementsByTagName("time")[0];
+                if (timeNode) {
+                    time = new Date(timeNode.textContent).getTime();
+                    if (!startTime) startTime = time;
+                }
+
+                points.push({
+                    lat: lat,
+                    lon: lon,
+                    ele: ele,
+                    time: time ? time : i * 1000
+                });
+            }
+
+            if (points.length > 0 && !startTime) {
+                startTime = points[0].time;
+            }
+
+            if (points.length > 0) {
+                const baseTime = points[0].time;
+                points.forEach(p => {
+                    p.elapsed = (p.time - baseTime) / 1000;
+                });
+            }
+
+            for (let i = 0; i < points.length; i++) {
+                if (i === 0) {
+                    points[i].heading = 0;
+                    points[i].speed = 0;
+                    points[i].distance = 0;
+                } else {
+                    const prev = points[i - 1];
+                    const curr = points[i];
+                    
+                    const dist = getDistanceFromLatLonInM(prev.lat, prev.lon, curr.lat, curr.lon);
+                    curr.distance = prev.distance + dist;
+                    curr.heading = getHeading(prev.lat, prev.lon, curr.lat, curr.lon);
+                    
+                    const timeDiff = curr.elapsed - prev.elapsed;
+                    curr.speed = timeDiff > 0 ? (dist / timeDiff) * 3.6 : 0;
+                }
+            }
+
+            return points;
+        }
+
+        function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function deg2rad(deg) { return deg * (Math.PI/180); }
+
+        function getHeading(lat1, lon1, lat2, lon2) {
+            const dLon = deg2rad(lon2 - lon1);
+            lat1 = deg2rad(lat1);
+            lat2 = deg2rad(lat2);
+            const y = Math.sin(dLon) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+            let brng = Math.atan2(y, x);
+            brng = brng * (180 / Math.PI);
+            return (brng + 360) % 360;
+        }
+
+        // --- Playback & Timeline Logic ---
+        function togglePlayback() {
+            if (gpxPoints.length === 0) return;
+            isPlaying = !isPlaying;
+            const icon = document.getElementById('playPauseIcon');
+            
+            if (isPlaying) {
+                icon.className = "fa-solid fa-pause";
+                lastTimestamp = performance.now();
+                animationFrameId = requestAnimationFrame(playbackLoop);
+            } else {
+                icon.className = "fa-solid fa-play";
+                cancelAnimationFrame(animationFrameId);
+            }
+        }
+
+        function playbackLoop(timestamp) {
+            if (!isPlaying) return;
+            const delta = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            currentTime += delta * playbackSpeed;
+            if (currentTime >= totalDuration) {
+                currentTime = totalDuration;
+                togglePlayback();
+            }
+
+            document.getElementById('timeSlider').value = currentTime;
+            updatePreviewAtTime(currentTime);
+
+            if (isPlaying) {
+                animationFrameId = requestAnimationFrame(playbackLoop);
+            }
+        }
+
+        function changeSpeed(val) {
+            playbackSpeed = parseFloat(val);
+        }
+
+        document.getElementById('timeSlider').addEventListener('input', (e) => {
+            currentTime = parseFloat(e.target.value);
+            updatePreviewAtTime(currentTime);
+        });
+
+        function updatePreviewAtTime(seconds) {
+            const pt = getPointAtTime(seconds);
+            if (!pt) return;
+
+            document.getElementById('teleSpeed').textContent = Math.round(pt.speed);
+            document.getElementById('teleAlt').textContent = Math.round(pt.ele);
+            document.getElementById('teleTime').textContent = formatTime(seconds);
+            document.getElementById('sliderCurrentTime').textContent = formatTime(seconds);
+            document.getElementById('teleDist').textContent = (pt.distance / 1000).toFixed(2);
+
+            const homeDistM = getDistanceFromLatLonInM(gpxPoints[0].lat, gpxPoints[0].lon, pt.lat, pt.lon);
+            const homeDistKm = homeDistM / 1000;
+            document.getElementById('teleHomeDist').textContent = homeDistKm < 1 ? Math.round(homeDistM) + ' m' : homeDistKm.toFixed(2) + ' km';
+
+            const zoomVal = document.getElementById('zoomLevelSelect').value;
+            const targetZoom = zoomVal === 'auto' ? 15 : parseInt(zoomVal);
+            map.setView([pt.lat, pt.lon], targetZoom, { animate: false });
+
+            const droneColor = document.getElementById('colorDrone').value;
+            if (droneMarker) {
+                map.removeLayer(droneMarker);
+            }
+            droneMarker = L.marker([pt.lat, pt.lon], {
+                icon: createDroneIcon(pt.heading, droneColor)
+            }).addTo(map);
+
+            const flownColor = document.getElementById('colorFlown').value;
+            const unflownColor = document.getElementById('colorUnflown').value;
+            const showUnflown = document.getElementById('chkUnflown').checked;
+
+            const completedCoords = getCompletedRoutePoints(seconds);
+            if (completedPolyline) {
+                map.removeLayer(completedPolyline);
+            }
+            completedPolyline = L.polyline(completedCoords, {
+                color: flownColor,
+                weight: 5,
+                opacity: 0.95
+            }).addTo(map);
+
+            if (unflownPolyline) {
+                map.removeLayer(unflownPolyline);
+            }
+
+            if (showUnflown) {
+                const unflownCoords = getUnflownRoutePoints(seconds);
+                if (unflownCoords.length > 0) {
+                    unflownPolyline = L.polyline(unflownCoords, {
+                        color: unflownColor,
+                        weight: 3,
+                        dashArray: '6, 6',
+                        opacity: 0.7
+                    }).addTo(map);
+                }
+            }
+        }
+
+        function getPointAtTime(seconds) {
+            if (!gpxPoints || gpxPoints.length === 0) return null;
+            if (seconds <= 0) return gpxPoints[0];
+            if (seconds >= gpxPoints[gpxPoints.length - 1].elapsed) return gpxPoints[gpxPoints.length - 1];
+
+            for (let i = 0; i < gpxPoints.length - 1; i++) {
+                const p1 = gpxPoints[i];
+                const p2 = gpxPoints[i + 1];
+                if (seconds >= p1.elapsed && seconds <= p2.elapsed) {
+                    const span = p2.elapsed - p1.elapsed;
+                    const t = span === 0 ? 0 : (seconds - p1.elapsed) / span;
+                    
+                    const lat = p1.lat + (p2.lat - p1.lat) * t;
+                    const lon = p1.lon + (p2.lon - p1.lon) * t;
+                    const ele = p1.ele + (p2.ele - p1.ele) * t;
+                    const speed = p1.speed + (p2.speed - p1.speed) * t;
+                    const heading = p1.heading;
+                    const distance = p1.distance + (p2.distance - p1.distance) * t;
+
+                    return { lat, lon, ele, speed, heading, distance, elapsed: seconds };
+                }
+            }
+            return gpxPoints[0];
+        }
+
+        function getCompletedRoutePoints(seconds) {
+            let pts = [];
+            for (let i = 0; i < gpxPoints.length; i++) {
+                if (gpxPoints[i].elapsed <= seconds) {
+                    pts.push([gpxPoints[i].lat, gpxPoints[i].lon]);
+                } else {
+                    const currentPt = getPointAtTime(seconds);
+                    if (currentPt) pts.push([currentPt.lat, currentPt.lon]);
+                    break;
+                }
+            }
+            return pts;
+        }
+
+        function getUnflownRoutePoints(seconds) {
+            let pts = [];
+            const currentPt = getPointAtTime(seconds);
+            if (currentPt) {
+                pts.push([currentPt.lat, currentPt.lon]);
+            }
+            for (let i = 0; i < gpxPoints.length; i++) {
+                if (gpxPoints[i].elapsed > seconds) {
+                    pts.push([gpxPoints[i].lat, gpxPoints[i].lon]);
+                }
+            }
+            return pts;
+        }
+
+        function createDroneIcon(heading, color) {
+            return L.divIcon({
+                className: 'drone-icon-container',
+                html: `<div style="transform: rotate(${heading}deg); width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.7));">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L3 21L12 17L21 21L12 2Z" fill="${color}" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                </div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // --- Tile Pre-fetching & Caching Engine ---
+        async function preloadMapTiles(progressCallback) {
+            const zoomVal = document.getElementById('zoomLevelSelect').value;
+            const zoom = zoomVal === 'auto' ? 15 : parseInt(zoomVal);
+            
+            let promises = [];
+            let sampledTimes = [];
+            for (let t = 0; t <= totalDuration; t += 1.5) {
+                sampledTimes.push(t);
+            }
+
+            let loadedCount = 0;
+            const totalTilesEstimate = sampledTimes.length * 5;
+
+            for (let t of sampledTimes) {
+                if (exportCancelled) break;
+                const pt = getPointAtTime(t);
+                if (pt) {
+                    const tileXY = latLonToTileXY(pt.lat, pt.lon, zoom);
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            promises.push(loadSingleTileImage(tileXY.x + dx, tileXY.y + dy, zoom).then(() => {
+                                loadedCount++;
+                                if (progressCallback) {
+                                    const pct = Math.min(25, Math.round((loadedCount / totalTilesEstimate) * 25));
+                                    progressCallback(pct, `Pre-fetching map tiles (${loadedCount}/${totalTilesEstimate})...`);
+                                }
+                            }));
+                        }
+                    }
+                }
+            }
+            await Promise.allSettled(promises);
+        }
+
+        function latLonToTileXY(lat, lon, zoom) {
+            const latRad = lat * Math.PI / 180;
+            const n = Math.pow(2, zoom);
+            const x = Math.floor((lon + 180) / 360 * n);
+            const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+            return { x, y };
+        }
+
+        function loadSingleTileImage(x, y, zoom) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                const lang = document.getElementById('mapLangSelect').value;
+                let url = `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+
+                if (currentMapSource === 'satellite') {
+                    url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${y}/${x}`;
+                } else if (currentMapSource === 'dark') {
+                    url = `https://a.basemaps.cartocdn.com/dark_all/${zoom}/${x}/${y}.png`;
+                } else if (currentMapSource === 'osm') {
+                    if (lang === 'pl') {
+                        url = `https://tile.openstreetmap.pl/${zoom}/${x}/${y}.png`;
+                    } else if (lang === 'de') {
+                        url = `https://tile.openstreetmap.de/${zoom}/${x}/${y}.png`;
+                    } else if (lang === 'fr') {
+                        url = `https://a.tile.openstreetmap.fr/osm/${zoom}/${x}/${y}.png`;
+                    } else if (lang === 'es') {
+                        url = `https://tile.openstreetmap.es/${zoom}/${x}/${y}.png`;
+                    } else if (lang === 'en') {
+                        url = `https://a.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${x}/${y}.png`;
+                    }
+                }
+
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = url;
+            });
+        }
+
+        // --- Optimized Video Export Engine ---
+        async function startVideoExport() {
+            if (!gpxPoints || gpxPoints.length === 0) {
+                showToast("Please load a GPX file first!", "error");
+                return;
+            }
+
+            if (isPlaying) {
+                togglePlayback();
+            }
+
+            isExporting = true;
+            exportCancelled = false;
+
+            const fps = parseInt(document.getElementById('exportFps').value) || 10;
+            const resolution = parseInt(document.getElementById('exportRes').value) || 720;
+            const quality = parseFloat(document.getElementById('exportQuality').value) || 0.75;
+
+            const modal = document.getElementById('exportModal');
+            const progressBar = document.getElementById('exportProgressBar');
+            const progressText = document.getElementById('exportProgressText');
+            const downloadSection = document.getElementById('exportDownloadSection');
+            const cancelBtn = document.getElementById('cancelExportBtn');
+            const closeBtn = document.getElementById('closeModalBtn');
+            
+            modal.classList.remove('hidden');
+            downloadSection.classList.add('hidden');
+            cancelBtn.classList.remove('hidden');
+            closeBtn.classList.add('hidden');
+            progressBar.style.width = '0%';
+            progressText.textContent = 'Pre-fetching map tiles along route...';
+
+            await preloadMapTiles((pct, msg) => {
+                progressBar.style.width = `${pct}%`;
+                progressText.textContent = msg;
+            });
+
+            if (exportCancelled) return;
+
+            const totalDuration = gpxPoints[gpxPoints.length - 1].elapsed;
+            const totalFrames = Math.ceil(totalDuration * fps);
+            const frameInterval = 1 / fps;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = resolution;
+            canvas.height = resolution;
+            const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+
+            let stream;
+            try {
+                stream = canvas.captureStream(fps);
+            } catch (e) {
+                showToast("Browser does not support captureStream().", "error");
+                modal.classList.add('hidden');
+                isExporting = false;
+                return;
+            }
+
+            let recorder;
+            let chunks = [];
+
+            try {
+                recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: quality * 8000000 });
+            } catch (e) {
+                try {
+                    recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                } catch (e2) {
+                    showToast("Failed to initialize MediaRecorder.", "error");
+                    modal.classList.add('hidden');
+                    isExporting = false;
+                    return;
+                }
+            }
+
+            activeRecorder = recorder;
+
+            recorder.ondataavailable = e => {
+                if (e.data && e.data.size > 0) chunks.push(e.data);
+            };
+
+            recorder.onstop = () => {
+                if (exportCancelled) return;
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                
+                progressBar.style.width = '100%';
+                progressText.textContent = 'Video export completed successfully!';
+                
+                const downloadBtn = document.getElementById('downloadVideoBtn');
+                downloadBtn.href = url;
+                downloadBtn.download = `drone_flight_${resolution}x${resolution}_${fps}fps.webm`;
+                downloadSection.classList.remove('hidden');
+                cancelBtn.classList.add('hidden');
+                closeBtn.classList.remove('hidden');
+            };
+
+            recorder.start();
+
+            const previewBox = document.getElementById('map-preview-box');
+            const origWidth = previewBox.style.width;
+            const origMaxWidth = previewBox.style.maxWidth;
+            
+            previewBox.style.width = `${resolution}px`;
+            previewBox.style.maxWidth = `${resolution}px`;
+            map.invalidateSize();
+
+            let currentFrame = 0;
+
+            for (let t = 0; t <= totalDuration; t += frameInterval) {
+                if (!isExporting || exportCancelled) {
+                    break;
+                }
+
+                currentFrame++;
+                const frameProgress = 25 + Math.round((currentFrame / totalFrames) * 75);
+                progressBar.style.width = `${frameProgress}%`;
+                progressText.textContent = `Rendering frame ${currentFrame} / ${totalFrames} (${frameProgress}%)`;
+
+                updatePreviewAtTime(t);
+
+                await new Promise(r => setTimeout(r, 10));
+
+                try {
+                    const renderedCanvas = await html2canvas(previewBox, {
+                        useCORS: true,
+                        allowTaint: false,
+                        scale: 1,
+                        logging: false
+                    });
+                    ctx.clearRect(0, 0, resolution, resolution);
+                    ctx.drawImage(renderedCanvas, 0, 0, resolution, resolution);
+                } catch (err) {
+                    console.error("Frame capture error:", err);
+                }
+            }
+
+            previewBox.style.width = origWidth;
+            previewBox.style.maxWidth = origMaxWidth;
+            map.invalidateSize();
+
+            if (isExporting && !exportCancelled) {
+                setTimeout(() => {
+                    if (recorder.state === 'recording') {
+                        recorder.stop();
+                    }
+                }, 300);
+            }
+
+            isExporting = false;
+        }
+
+        function cancelVideoExport() {
+            exportCancelled = true;
+            isExporting = false;
+            if (activeRecorder && activeRecorder.state === 'recording') {
+                try {
+                    activeRecorder.stop();
+                } catch (e) {}
+            }
+            closeExportModal();
+            showToast("Video export cancelled by user.", "error");
+        }
+
+        function closeExportModal() {
+            document.getElementById('exportModal').classList.add('hidden');
+        }
+
+        // --- Toast Notification System ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const bgColor = type === 'success' ? 'bg-slate-900 border-accentBlue text-slate-100' : 'bg-slate-900 border-rose-500 text-slate-100';
+            const icon = type === 'success' ? '<i class="fa-solid fa-circle-check text-accentBlue"></i>' : '<i class="fa-solid fa-circle-exclamation text-rose-500"></i>';
+
+            toast.className = `pointer-events-auto px-4 py-3 rounded-xl border ${bgColor} shadow-2xl flex items-center gap-3 text-xs font-medium transform translate-y-2 opacity-0 transition-all duration-300`;
+            toast.innerHTML = `${icon} <span>${message}</span>`;
+
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
