@@ -172,11 +172,11 @@
                     <div>
                         <label class="block text-xs font-medium text-slate-400 mb-1">Zoom Level</label>
                         <select id="mapZoomScaleSelect" onchange="changeMapZoomScale()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
-                            <option value="0.25">0.25x</option>
-                            <option value="0.5">0.5x</option>
+                            <option value="0.25">0.25x (-2 Zoom)</option>
+                            <option value="0.5">0.5x (-1 Zoom)</option>
                             <option value="1.0" selected>1.0x (Normal)</option>
-                            <option value="1.5">1.5x</option>
-                            <option value="2.0">2.0x</option>
+                            <option value="1.5">1.5x (+1 Zoom)</option>
+                            <option value="2.0">2.0x (+2 Zoom)</option>
                         </select>
                     </div>
                 </div>
@@ -289,7 +289,7 @@
             <div id="previewWrapper" class="w-full aspect-square rounded-2xl shadow-2xl border border-slate-700 bg-slate-900 relative overflow-hidden flex flex-col">
                 
                 <!-- Leaflet Map Canvas Container -->
-                <div id="map" class="w-full h-full z-10 transition-transform duration-200"></div>
+                <div id="map" class="w-full h-full z-10"></div>
 
                 <!-- Draggable Telemetry Overlay HUD Widgets (Static widths to prevent jitter, initial starting layout) -->
                 
@@ -431,6 +431,7 @@
         let totalFlightDuration = 0; 
         let totalFlightDistance = 0; 
         let homeLocation = null;
+        let baseMapZoom = 15;
 
         let isPlaying = false;
         let playbackTime = 0; 
@@ -446,11 +447,11 @@
         let recordedChunks = [];
         let exportCancelRequested = false;
 
-        // Tile layer definitions (using keyless official OpenStreetMap & Esri layers with labels)
+        // Tile layer definitions (with referrerPolicy configured to comply with OSM policy)
         const tileConfigs = {
             osm: {
                 url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors' },
+                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors', referrerPolicy: 'strict-origin-when-cross-origin' },
                 labels: false,
                 dark: false
             },
@@ -468,13 +469,13 @@
             },
             dark: {
                 url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors' },
+                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors', referrerPolicy: 'strict-origin-when-cross-origin' },
                 labels: false,
                 dark: true
             },
             light: {
                 url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors' },
+                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors', referrerPolicy: 'strict-origin-when-cross-origin' },
                 labels: false,
                 dark: false
             }
@@ -521,7 +522,6 @@
                 mapEl.classList.remove('dark-tile-filter');
             }
 
-            // Add Esri World Boundaries and Places reference layer for satellite/hybrid or whenever labels are requested
             if (config.labels || type === 'satellite' || type === 'hybrid') {
                 window.hybridLabelsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
                     maxZoom: 19,
@@ -551,12 +551,18 @@
 
         function changeMapZoomScale() {
             const scale = parseFloat(document.getElementById('mapZoomScaleSelect').value);
-            const mapEl = document.getElementById('map');
-            mapEl.style.transform = `scale(${scale})`;
-            mapEl.style.transformOrigin = 'center center';
-            setTimeout(() => {
-                if (map) map.invalidateSize();
-            }, 200);
+            // 0.25 (-2 zoom), 0.5 (-1 zoom), 1.0 (0), 1.5 (+1 zoom), 2.0 (+2 zoom)
+            let zoomOffset = 0;
+            if (scale === 0.25) zoomOffset = -2;
+            else if (scale === 0.5) zoomOffset = -1;
+            else if (scale === 1.0) zoomOffset = 0;
+            else if (scale === 1.5) zoomOffset = 1;
+            else if (scale === 2.0) zoomOffset = 2;
+
+            if (map) {
+                const targetZoom = Math.max(1, Math.min(19, baseMapZoom + zoomOffset));
+                map.setZoom(targetZoom);
+            }
         }
 
         // --- HUD Widget Toggles & Drag Logic ---
@@ -755,6 +761,9 @@
 
             document.getElementById('statusText').textContent = 'Flight Loaded';
 
+            baseMapZoom = 16;
+            document.getElementById('mapZoomScaleSelect').value = "1.0";
+
             initMapLayers();
             playbackTime = 0;
             updatePlayback(0);
@@ -783,7 +792,7 @@
             });
 
             droneMarker = L.marker([startPt.lat, startPt.lon], { icon: arrowIcon }).addTo(map);
-            map.setView([startPt.lat, startPt.lon], 16);
+            map.setView([startPt.lat, startPt.lon], baseMapZoom);
         }
 
         function updateColors() {
