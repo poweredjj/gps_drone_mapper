@@ -63,17 +63,17 @@
         .widget-size-small { padding: 6px 10px !important; }
         .widget-size-small .w-10, .widget-size-small .w-8 { width: 24px !important; height: 24px !important; font-size: 11px !important; }
         .widget-size-small p.text-\[10px\] { font-size: 9px !important; }
-        .widget-size-small p.text-sm { font-size: 12px !important; }
+        .widget-size-small p.text-xl { font-size: 15px !important; }
 
         .widget-size-normal { padding: 8px 14px !important; }
         .widget-size-normal .w-10, .widget-size-normal .w-8 { width: 32px !important; height: 32px !important; font-size: 13px !important; }
         .widget-size-normal p.text-\[10px\] { font-size: 10px !important; }
-        .widget-size-normal p.text-sm { font-size: 14px !important; }
+        .widget-size-normal p.text-xl { font-size: 18px !important; }
 
         .widget-size-large { padding: 14px 20px !important; }
         .widget-size-large .w-10, .widget-size-large .w-8 { width: 44px !important; height: 44px !important; font-size: 18px !important; }
         .widget-size-large p.text-\[10px\] { font-size: 12px !important; letter-spacing: 0.05em; }
-        .widget-size-large p.text-sm { font-size: 18px !important; }
+        .widget-size-large p.text-xl { font-size: 22px !important; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white pb-12">
@@ -96,7 +96,7 @@
                 <i class="fa-solid fa-bolt text-amber-400"></i> Load Sample Flight
             </button>
             <div id="connectionStatus" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="statusIndicatorDot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span id="statusText">Ready for GPX</span>
             </div>
         </div>
@@ -291,56 +291,56 @@
                 <!-- Leaflet Map Canvas Container -->
                 <div id="map" class="w-full h-full z-10"></div>
 
-                <!-- Draggable Telemetry Overlay HUD Widgets (Static widths to prevent jitter, initial starting layout) -->
+                <!-- Draggable Telemetry Overlay HUD Widgets (Expanded widths to accommodate max values like 999 km/h and 99.00 km) -->
                 
                 <!-- Speed Widget (Top Left) -->
-                <div id="widgetSpeed" class="hud-widget widget-size-large absolute top-5 left-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
-                    <div class="w-10 h-10 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center pointer-events-none">
+                <div id="widgetSpeed" class="hud-widget widget-size-large absolute top-5 left-5 z-20 glass-panel rounded-2xl flex items-center gap-3.5 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                    <div class="w-10 h-10 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center pointer-events-none shrink-0">
                         <i class="fa-solid fa-gauge-high"></i>
                     </div>
                     <div class="pointer-events-none">
-                        <p id="hudSpeed" class="text-lg font-bold text-white min-w-[90px] inline-block">0 <span class="text-xs font-normal text-slate-400">km/h</span></p>
+                        <p id="hudSpeed" class="text-xl font-extrabold text-white min-w-[125px] inline-block tracking-tight">0 <span class="text-xs font-normal text-slate-400">km/h</span></p>
                     </div>
                 </div>
 
                 <!-- Altitude Widget (Top Right) -->
-                <div id="widgetAltitude" class="hud-widget widget-size-large absolute top-5 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
-                    <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center pointer-events-none">
+                <div id="widgetAltitude" class="hud-widget widget-size-large absolute top-5 right-5 z-20 glass-panel rounded-2xl flex items-center gap-3.5 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center pointer-events-none shrink-0">
                         <span class="text-xs font-extrabold tracking-tighter">ALT</span>
                     </div>
                     <div class="pointer-events-none">
-                        <p id="hudAltitude" class="text-lg font-bold text-white min-w-[85px] inline-block">0 <span class="text-xs font-normal text-slate-400">m</span></p>
+                        <p id="hudAltitude" class="text-xl font-extrabold text-white min-w-[105px] inline-block tracking-tight">0 <span class="text-xs font-normal text-slate-400">m</span></p>
                     </div>
                 </div>
 
                 <!-- Flight Time Widget (Disabled by default) -->
-                <div id="widgetTime" style="display: none;" class="hud-widget widget-size-large absolute top-28 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center pointer-events-none">
+                <div id="widgetTime" style="display: none;" class="hud-widget widget-size-large absolute top-28 right-5 z-20 glass-panel rounded-2xl flex items-center gap-3.5 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center pointer-events-none shrink-0">
                         <i class="fa-solid fa-stopwatch"></i>
                     </div>
                     <div class="pointer-events-none">
-                        <p class="text-[12px] uppercase font-semibold text-slate-400 tracking-wider">Flight Time</p>
-                        <p id="hudTime" class="text-lg font-bold text-white min-w-[80px] inline-block">00:00</p>
+                        <p class="text-[11px] uppercase font-semibold text-slate-400 tracking-wider">Flight Time</p>
+                        <p id="hudTime" class="text-xl font-extrabold text-white min-w-[95px] inline-block tracking-tight">00:00</p>
                     </div>
                 </div>
 
                 <!-- Total Distance Widget (Bottom Left) -->
-                <div id="widgetDistance" class="hud-widget widget-size-large absolute bottom-5 left-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
-                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center pointer-events-none">
+                <div id="widgetDistance" class="hud-widget widget-size-large absolute bottom-5 left-5 z-20 glass-panel rounded-2xl flex items-center gap-3.5 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center pointer-events-none shrink-0">
                         <i class="fa-solid fa-arrows-rotate"></i>
                     </div>
                     <div class="pointer-events-none">
-                        <p id="hudDistance" class="text-lg font-bold text-white min-w-[100px] inline-block">0.00 <span class="text-xs font-normal text-slate-400">km</span></p>
+                        <p id="hudDistance" class="text-xl font-extrabold text-white min-w-[130px] inline-block tracking-tight">0.00 <span class="text-xs font-normal text-slate-400">km</span></p>
                     </div>
                 </div>
 
                 <!-- Distance from Home Widget (Bottom Right) -->
-                <div id="widgetHome" class="hud-widget widget-size-large absolute bottom-5 right-5 z-20 glass-panel rounded-2xl flex items-center gap-4 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
-                    <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center pointer-events-none">
+                <div id="widgetHome" class="hud-widget widget-size-large absolute bottom-5 right-5 z-20 glass-panel rounded-2xl flex items-center gap-3.5 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
+                    <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center pointer-events-none shrink-0">
                         <i class="fa-solid fa-house"></i>
                     </div>
                     <div class="pointer-events-none">
-                        <p id="hudHomeDist" class="text-lg font-bold text-white min-w-[95px] inline-block">0 <span class="text-xs font-normal text-slate-400">m</span></p>
+                        <p id="hudHomeDist" class="text-xl font-extrabold text-white min-w-[125px] inline-block tracking-tight">0 <span class="text-xs font-normal text-slate-400">m</span></p>
                     </div>
                 </div>
 
@@ -447,7 +447,7 @@
         let recordedChunks = [];
         let exportCancelRequested = false;
 
-        // Tile layer definitions (with referrerPolicy configured to comply with OSM policy)
+        // Tile layer definitions with active tile-error monitoring
         const tileConfigs = {
             osm: {
                 url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -513,7 +513,29 @@
             }
 
             const config = tileConfigs[type] || tileConfigs.osm;
-            tileLayer = L.tileLayer(config.url, config.options).addTo(map);
+            tileLayer = L.tileLayer(config.url, config.options);
+
+            // Active Tile Loading Health Check (Detects network blocks or connection failures)
+            let tileErrorCount = 0;
+            tileLayer.on('tileerror', (e) => {
+                tileErrorCount++;
+                if (tileErrorCount <= 2) {
+                    console.warn('Tile load warning:', e);
+                    document.getElementById('statusText').textContent = 'Tile Load Warning (Check Network)';
+                    document.getElementById('statusIndicatorDot').className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+                    document.getElementById('connectionStatus').className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium';
+                }
+            });
+
+            tileLayer.on('load', () => {
+                if (tileErrorCount === 0) {
+                    document.getElementById('statusText').textContent = trackPoints.length > 0 ? 'Flight Loaded' : 'Ready for GPX';
+                    document.getElementById('statusIndicatorDot').className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+                    document.getElementById('connectionStatus').className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium';
+                }
+            });
+
+            tileLayer.addTo(map);
 
             const mapEl = document.getElementById('map');
             if (config.dark) {
@@ -551,7 +573,6 @@
 
         function changeMapZoomScale() {
             const scale = parseFloat(document.getElementById('mapZoomScaleSelect').value);
-            // 0.25 (-2 zoom), 0.5 (-1 zoom), 1.0 (0), 1.5 (+1 zoom), 2.0 (+2 zoom)
             let zoomOffset = 0;
             if (scale === 0.25) zoomOffset = -2;
             else if (scale === 0.5) zoomOffset = -1;
@@ -926,7 +947,7 @@
             document.getElementById('timeScrubber').value = timeSec;
             document.getElementById('currentTimeDisplay').textContent = formatTime(timeSec);
 
-            // Telemetry values with static min-widths to prevent jitter
+            // Telemetry values with generous min-widths to fit 999 km/h and 99.00 km comfortably
             document.getElementById('hudSpeed').innerHTML = `${Math.round(currPt.speed)} <span class="text-xs font-normal text-slate-400">km/h</span>`;
             document.getElementById('hudAltitude').innerHTML = `${Math.round(currPt.ele)} <span class="text-xs font-normal text-slate-400">m</span>`;
             document.getElementById('hudTime').textContent = formatTime(timeSec);
