@@ -27,7 +27,7 @@
     </script>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <!-- html2canvas for Fast GPU-accelerated Video Export Rendering -->
+    <!-- html2canvas for GPU-accelerated Video Export Rendering -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -87,6 +87,12 @@
         .widget-size-large .w-10, .widget-size-large .w-8 { width: 44px !important; height: 44px !important; font-size: 18px !important; }
         .widget-size-large p.text-\[10px\] { font-size: 12px !important; letter-spacing: 0.05em; }
         .widget-size-large p.text-xl { font-size: 22px !important; }
+
+        /* GPU Export Acceleration: Disable heavy backdrop filters during snapshotting */
+        .gpu-exporting .glass-panel {
+            backdrop-filter: none !important;
+            background: rgba(15, 23, 42, 0.95) !important;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white pb-12">
@@ -314,7 +320,7 @@
                 <!-- Leaflet Map Canvas Container -->
                 <div id="map" class="w-full h-full z-10"></div>
 
-                <!-- Draggable Telemetry Overlay HUD Widgets (Expanded widths to accommodate max values like 999 km/h and 99.00 km) -->
+                <!-- Draggable Telemetry Overlay HUD Widgets -->
                 
                 <!-- Speed Widget (Top Left) -->
                 <div id="widgetSpeed" class="hud-widget widget-size-large absolute top-5 left-5 z-20 glass-panel rounded-2xl flex items-center gap-3.5 shadow-xl border border-slate-700/80 backdrop-blur-md bg-slate-900/90">
@@ -474,31 +480,31 @@
         const tileConfigs = {
             osm: {
                 url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors', referrerPolicy: 'strict-origin-when-cross-origin' },
+                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors', referrerPolicy: 'strict-origin-when-cross-origin', crossOrigin: true },
                 labels: false,
                 dark: false
             },
             satellite: {
                 url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                options: { maxZoom: 19, attribution: 'Tiles © Esri' },
+                options: { maxZoom: 19, attribution: 'Tiles © Esri', crossOrigin: true },
                 labels: true,
                 dark: false
             },
             hybrid: {
                 url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                options: { maxZoom: 19, attribution: 'Tiles © Esri' },
+                options: { maxZoom: 19, attribution: 'Tiles © Esri', crossOrigin: true },
                 labels: true,
                 dark: false
             },
             dark: {
                 url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors', referrerPolicy: 'strict-origin-when-cross-origin' },
+                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors', referrerPolicy: 'strict-origin-when-cross-origin', crossOrigin: true },
                 labels: false,
                 dark: true
             },
             light: {
                 url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors', referrerPolicy: 'strict-origin-when-cross-origin' },
+                options: { maxZoom: 19, attribution: '© OpenStreetMap contributors', referrerPolicy: 'strict-origin-when-cross-origin', crossOrigin: true },
                 labels: false,
                 dark: false
             }
@@ -513,15 +519,16 @@
 
         function initMap() {
             map = L.map('map', {
-                dragging: false,
-                touchZoom: false,
-                scrollWheelZoom: false,
-                doubleClickZoom: false,
-                boxZoom: false,
-                keyboard: false,
-                zoomControl: false,
-                attributionControl: false
-            }).setView([52.2297, 21.0122], 15);
+			preferCanvas: true, // Forces GPU canvas rendering for vectors
+			dragging: false,
+			touchZoom: false,
+			scrollWheelZoom: false,
+			doubleClickZoom: false,
+			boxZoom: false,
+			keyboard: false,
+			zoomControl: false,
+			attributionControl: true
+		}).setView([52.2297, 21.0122], 15);
 
             // Create dedicated custom pane for map location labels with overflow visible
             map.createPane('labelPane');
@@ -576,7 +583,8 @@
                 window.hybridLabelsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
                     maxZoom: 19,
                     attribution: 'Esri Reference',
-                    pane: 'labelPane'
+                    pane: 'labelPane',
+                    crossOrigin: true
                 }).addTo(map);
             }
         }
@@ -1020,7 +1028,8 @@
 
             if (isPlaying) togglePlay();
 
-            // Disable background interface interaction
+            // Enable GPU export mode to strip slow CPU blur filters
+            document.documentElement.classList.add('gpu-exporting');
             document.body.classList.add('pointer-events-none');
 
             // Show export modal window
@@ -1048,10 +1057,10 @@
             const exportCanvas = document.createElement('canvas');
             exportCanvas.width = res;
             exportCanvas.height = res;
-            const exportCtx = exportCanvas.getContext('2d');
+            const exportCtx = exportCanvas.getContext('2d', { willReadFrequently: true });
 
             const liveCanvas = document.getElementById('exportLiveCanvas');
-            const liveCtx = liveCanvas.getContext('2d');
+            const liveCtx = liveCanvas.getContext('2d', { willReadFrequently: true });
 
             const stream = exportCanvas.captureStream(fps);
             let mimeType = 'video/webm;codecs=vp9';
@@ -1084,7 +1093,7 @@
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `drone_flight_${res}x${res}_${fps}fps.mp4`;
+                    a.download = `drone_flight_${res}x${res}_${fps}fps.webm`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -1113,7 +1122,8 @@
                         scale: res / previewEl.offsetWidth,
                         useCORS: true,
                         logging: false,
-                        backgroundColor: '#0f172a'
+                        backgroundColor: '#0f172a',
+                        removeContainer: true
                     });
                     
                     exportCtx.clearRect(0, 0, res, res);
@@ -1161,6 +1171,7 @@
 
         function cleanupExport() {
             isExporting = false;
+            document.documentElement.classList.remove('gpu-exporting');
             document.body.classList.remove('pointer-events-none');
             const modal = document.getElementById('exportModal');
             modal.classList.add('hidden');
