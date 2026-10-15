@@ -27,8 +27,6 @@
     </script>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <!-- html2canvas for GPU-accelerated Video Export Rendering -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Inter Font -->
@@ -87,12 +85,6 @@
         .widget-size-large .w-10, .widget-size-large .w-8 { width: 44px !important; height: 44px !important; font-size: 18px !important; }
         .widget-size-large p.text-\[10px\] { font-size: 12px !important; letter-spacing: 0.05em; }
         .widget-size-large p.text-xl { font-size: 22px !important; }
-
-        /* GPU Export Acceleration: Disable heavy backdrop filters during snapshotting */
-        .gpu-exporting .glass-panel {
-            backdrop-filter: none !important;
-            background: rgba(15, 23, 42, 0.95) !important;
-        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white pb-12">
@@ -314,7 +306,7 @@
         <!-- Right Column: 1:1 Square Map Preview & Playback Panel (7 Cols) -->
         <div class="lg:col-span-7 flex flex-col items-center w-full max-w-[650px] mx-auto space-y-4">
             
-            <!-- Map Preview Container (Captured by html2canvas) -->
+            <!-- Map Preview Container -->
             <div id="previewWrapper" class="w-full aspect-square rounded-2xl shadow-2xl border border-slate-700 bg-slate-900 relative overflow-hidden flex flex-col">
                 
                 <!-- Leaflet Map Canvas Container -->
@@ -375,7 +367,7 @@
 
             </div>
 
-            <!-- Playback Panel (Placed under preview, NOT captured during export) -->
+            <!-- Playback Panel -->
             <div class="w-full glass-panel rounded-2xl p-4 shadow-xl flex flex-col md:flex-row items-center gap-4">
                 
                 <!-- Controls & Speed Multipliers -->
@@ -414,7 +406,7 @@
         <div class="glass-panel w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-700 space-y-4 text-center">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                 <h3 id="exportModalTitle" class="font-bold text-sm text-white flex items-center gap-2">
-                    <i class="fa-solid fa-video text-brand-400"></i> Rendering Video Export
+                    <i class="fa-solid fa-video text-brand-400"></i> Rendering Video Export (Direct GPU Engine)
                 </h3>
                 <span id="exportPercentageModal" class="text-xs font-mono font-bold text-brand-400">0%</span>
             </div>
@@ -476,7 +468,7 @@
         let recordedChunks = [];
         let exportCancelRequested = false;
 
-        // Tile layer definitions with active tile-error monitoring
+        // Tile layer definitions
         const tileConfigs = {
             osm: {
                 url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -510,7 +502,6 @@
             }
         };
 
-        // Initialize Map & Event Handlers
         window.onload = function() {
             initMap();
             setupDragAndDrop();
@@ -519,18 +510,16 @@
 
         function initMap() {
             map = L.map('map', {
-			preferCanvas: true, // Forces GPU canvas rendering for vectors
-			dragging: false,
-			touchZoom: false,
-			scrollWheelZoom: false,
-			doubleClickZoom: false,
-			boxZoom: false,
-			keyboard: false,
-			zoomControl: false,
-			attributionControl: true
-		}).setView([52.2297, 21.0122], 15);
+                dragging: false,
+                touchZoom: false,
+                scrollWheelZoom: false,
+                doubleClickZoom: false,
+                boxZoom: false,
+                keyboard: false,
+                zoomControl: false,
+                attributionControl: true
+            }).setView([52.2297, 21.0122], 15);
 
-            // Create dedicated custom pane for map location labels with overflow visible
             map.createPane('labelPane');
             map.getPane('labelPane').style.zIndex = 650;
             map.getPane('labelPane').style.pointerEvents = 'none';
@@ -539,9 +528,7 @@
         }
 
         function setBaseTileLayer(type) {
-            if (tileLayer) {
-                map.removeLayer(tileLayer);
-            }
+            if (tileLayer) map.removeLayer(tileLayer);
             if (window.hybridLabelsLayer) {
                 map.removeLayer(window.hybridLabelsLayer);
                 window.hybridLabelsLayer = null;
@@ -549,27 +536,6 @@
 
             const config = tileConfigs[type] || tileConfigs.osm;
             tileLayer = L.tileLayer(config.url, config.options);
-
-            // Active Tile Loading Health Check (Detects network blocks or connection failures)
-            let tileErrorCount = 0;
-            tileLayer.on('tileerror', (e) => {
-                tileErrorCount++;
-                if (tileErrorCount <= 2) {
-                    console.warn('Tile load warning:', e);
-                    document.getElementById('statusText').textContent = 'Tile Load Warning (Check Network)';
-                    document.getElementById('statusIndicatorDot').className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
-                    document.getElementById('connectionStatus').className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium';
-                }
-            });
-
-            tileLayer.on('load', () => {
-                if (tileErrorCount === 0) {
-                    document.getElementById('statusText').textContent = trackPoints.length > 0 ? 'Flight Loaded' : 'Ready for GPX';
-                    document.getElementById('statusIndicatorDot').className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
-                    document.getElementById('connectionStatus').className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium';
-                }
-            });
-
             tileLayer.addTo(map);
 
             const mapEl = document.getElementById('map');
@@ -590,19 +556,16 @@
         }
 
         function changeTileLayer() {
-            const select = document.getElementById('tileLayerSelect');
-            setBaseTileLayer(select.value);
+            setBaseTileLayer(document.getElementById('tileLayerSelect').value);
         }
 
         function changeMapLanguage() {
-            const lang = document.getElementById('mapLanguageSelect').value;
-            showToast(`Map language set to ${lang.toUpperCase()}`);
+            showToast(`Map language updated`);
         }
 
         function changeWidgetSize() {
             const size = document.getElementById('widgetSizeSelect').value;
-            const widgets = document.querySelectorAll('.hud-widget');
-            widgets.forEach(w => {
+            document.querySelectorAll('.hud-widget').forEach(w => {
                 w.classList.remove('widget-size-small', 'widget-size-normal', 'widget-size-large');
                 w.classList.add(`widget-size-${size}`);
             });
@@ -613,71 +576,45 @@
             let zoomOffset = 0;
             if (scale === 0.25) zoomOffset = -2;
             else if (scale === 0.5) zoomOffset = -1;
-            else if (scale === 1.0) zoomOffset = 0;
             else if (scale === 1.5) zoomOffset = 1;
             else if (scale === 2.0) zoomOffset = 2;
-
-            if (map) {
-                const targetZoom = Math.max(1, Math.min(19, baseMapZoom + zoomOffset));
-                map.setZoom(targetZoom);
-            }
+            if (map) map.setZoom(Math.max(1, Math.min(19, baseMapZoom + zoomOffset)));
         }
 
         function changeMapLabelSize() {
-            const scaleValue = document.getElementById('mapLabelSizeSelect').value;
-            document.documentElement.style.setProperty('--label-scale', scaleValue);
+            document.documentElement.style.setProperty('--label-scale', document.getElementById('mapLabelSizeSelect').value);
         }
 
-        // --- HUD Widget Toggles & Drag Logic ---
         function toggleHudWidget(widgetId, isChecked) {
             const widget = document.getElementById(widgetId);
-            if (widget) {
-                widget.style.display = isChecked ? 'flex' : 'none';
-            }
+            if (widget) widget.style.display = isChecked ? 'flex' : 'none';
         }
 
         function initDraggableHudWidgets() {
             const wrapper = document.getElementById('previewWrapper');
-            const widgets = document.querySelectorAll('.hud-widget');
-
-            widgets.forEach(widget => {
-                let isDragging = false;
-                let startX, startY, initialLeft, initialTop;
-
+            document.querySelectorAll('.hud-widget').forEach(widget => {
+                let isDragging = false, startX, startY, initialLeft, initialTop;
                 widget.addEventListener('pointerdown', (e) => {
                     isDragging = true;
                     startX = e.clientX;
                     startY = e.clientY;
-                    
                     const rect = widget.getBoundingClientRect();
                     const containerRect = wrapper.getBoundingClientRect();
-
                     initialLeft = rect.left - containerRect.left;
                     initialTop = rect.top - containerRect.top;
-
                     widget.setPointerCapture(e.pointerId);
                 });
-
                 widget.addEventListener('pointermove', (e) => {
                     if (!isDragging) return;
-                    const dx = e.clientX - startX;
-                    const dy = e.clientY - startY;
-
                     const containerRect = wrapper.getBoundingClientRect();
                     const widgetRect = widget.getBoundingClientRect();
-
-                    let newLeft = initialLeft + dx;
-                    let newTop = initialTop + dy;
-
-                    newLeft = Math.max(8, Math.min(containerRect.width - widgetRect.width - 8, newLeft));
-                    newTop = Math.max(8, Math.min(containerRect.height - widgetRect.height - 8, newTop));
-
+                    let newLeft = Math.max(8, Math.min(containerRect.width - widgetRect.width - 8, initialLeft + (e.clientX - startX)));
+                    let newTop = Math.max(8, Math.min(containerRect.height - widgetRect.height - 8, initialTop + (e.clientY - startY)));
                     widget.style.left = `${newLeft}px`;
                     widget.style.top = `${newTop}px`;
                     widget.style.right = 'auto';
                     widget.style.bottom = 'auto';
                 });
-
                 widget.addEventListener('pointerup', (e) => {
                     isDragging = false;
                     try { widget.releasePointerCapture(e.pointerId); } catch(err) {}
@@ -685,30 +622,14 @@
             });
         }
 
-        // --- Drag & Drop GPX Parser ---
         function setupDragAndDrop() {
             const dropZone = document.getElementById('dropZone');
             dropZone.addEventListener('click', () => document.getElementById('gpxFileInput').click());
-
-            ['dragenter', 'dragover'].forEach(eventName => {
-                dropZone.addEventListener(eventName, (e) => {
-                    e.preventDefault();
-                    dropZone.classList.add('border-brand-500', 'bg-brand-500/10');
-                }, false);
-            });
-
-            ['dragleave', 'drop'].forEach(eventName => {
-                dropZone.addEventListener(eventName, (e) => {
-                    e.preventDefault();
-                    dropZone.classList.remove('border-brand-500', 'bg-brand-500/10');
-                }, false);
-            });
-
+            ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, (ev) => { ev.preventDefault(); dropZone.classList.add('border-brand-500', 'bg-brand-500/15'); }));
+            ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, (ev) => { ev.preventDefault(); dropZone.classList.remove('border-brand-500', 'bg-brand-500/15'); }));
             dropZone.addEventListener('drop', (e) => {
-                const dt = e.dataTransfer;
-                const files = dt.files;
-                if (files.length > 0 && files[0].name.endsWith('.gpx')) {
-                    parseGpxFile(files[0]);
+                if (e.dataTransfer.files.length > 0 && e.dataTransfer.files[0].name.endsWith('.gpx')) {
+                    parseGpxFile(e.dataTransfer.files[0]);
                 } else {
                     showToast('Please upload a valid .gpx file.');
                 }
@@ -716,48 +637,33 @@
         }
 
         function handleFileSelect(e) {
-            const files = e.target.files;
-            if (files.length > 0) {
-                parseGpxFile(files[0]);
-            }
+            if (e.target.files.length > 0) parseGpxFile(e.target.files[0]);
         }
 
         function parseGpxFile(file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
-                processGpxXml(e.target.result, file.name);
-            };
+            reader.onload = (e) => processGpxXml(e.target.result, file.name);
             reader.readAsText(file);
         }
 
         function processGpxXml(xmlString, fileName) {
             try {
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+                const xmlDoc = new DOMParser().parseFromString(xmlString, "text/xml");
                 const trkpts = xmlDoc.getElementsByTagName('trkpt');
-
-                if (trkpts.length === 0) {
-                    showToast('No track points found in GPX file.');
-                    return;
-                }
+                if (trkpts.length === 0) { showToast('No track points found.'); return; }
 
                 let rawPoints = [];
                 for (let i = 0; i < trkpts.length; i++) {
                     const pt = trkpts[i];
-                    const lat = parseFloat(pt.getAttribute('lat'));
-                    const lon = parseFloat(pt.getAttribute('lon'));
-                    const eleEl = pt.getElementsByTagName('ele')[0];
-                    const timeEl = pt.getElementsByTagName('time')[0];
-
-                    const ele = eleEl ? parseFloat(eleEl.textContent) : 0;
-                    const time = timeEl ? new Date(timeEl.textContent).getTime() : i * 1000;
-
-                    rawPoints.push({ lat, lon, ele, time });
+                    rawPoints.push({
+                        lat: parseFloat(pt.getAttribute('lat')),
+                        lon: parseFloat(pt.getAttribute('lon')),
+                        ele: pt.getElementsByTagName('ele')[0] ? parseFloat(pt.getElementsByTagName('ele')[0].textContent) : 0,
+                        time: pt.getElementsByTagName('time')[0] ? new Date(pt.getElementsByTagName('time')[0].textContent).getTime() : i * 1000
+                    });
                 }
-
                 buildTrackData(rawPoints, fileName);
             } catch (err) {
-                console.error(err);
                 showToast('Error parsing GPX file.');
             }
         }
@@ -765,18 +671,10 @@
         function buildTrackData(rawPoints, fileName) {
             trackPoints = [];
             let cumulativeDist = 0;
-
             for (let i = 0; i < rawPoints.length; i++) {
                 const curr = rawPoints[i];
-                let speed = 0;
-                let heading = 0;
-
                 if (i === 0) {
-                    curr.timeOffset = 0;
-                    curr.distance = 0;
-                    curr.cumulativeDist = 0;
-                    curr.speed = 0;
-                    curr.heading = 0;
+                    curr.timeOffset = 0; curr.distance = 0; curr.cumulativeDist = 0; curr.speed = 0; curr.heading = 0;
                 } else {
                     const prev = rawPoints[i - 1];
                     curr.timeOffset = (curr.time - rawPoints[0].time) / 1000;
@@ -784,27 +682,15 @@
                     cumulativeDist += distKm;
                     curr.distance = distKm;
                     curr.cumulativeDist = cumulativeDist;
-
                     const timeDiffSec = (curr.time - prev.time) / 1000;
-                    if (timeDiffSec > 0) {
-                        speed = (distKm / (timeDiffSec / 3600));
-                    } else {
-                        speed = 0;
-                    }
-                    curr.speed = Math.max(0, speed);
-
-                    heading = calculateHeading(prev.lat, prev.lon, curr.lat, curr.lon);
-                    curr.heading = heading;
+                    curr.speed = timeDiffSec > 0 ? Math.max(0, distKm / (timeDiffSec / 3600)) : 0;
+                    curr.heading = calculateHeading(prev.lat, prev.lon, curr.lat, curr.lon);
                 }
                 trackPoints.push(curr);
             }
-
             for (let i = 0; i < trackPoints.length; i++) {
-                if (i === 0 && trackPoints.length > 1) {
-                    trackPoints[0].heading = trackPoints[1].heading;
-                } else if (trackPoints[i].heading === 0 && i > 0) {
-                    trackPoints[i].heading = trackPoints[i - 1].heading;
-                }
+                if (i === 0 && trackPoints.length > 1) trackPoints[0].heading = trackPoints[1].heading;
+                else if (trackPoints[i].heading === 0 && i > 0) trackPoints[i].heading = trackPoints[i - 1].heading;
             }
 
             totalFlightDuration = trackPoints[trackPoints.length - 1].timeOffset;
@@ -821,12 +707,10 @@
             document.getElementById('playBtn').disabled = false;
             document.getElementById('resetBtn').disabled = false;
             document.getElementById('exportBtn').disabled = false;
-
             document.getElementById('statusText').textContent = 'Flight Loaded';
 
             baseMapZoom = 16;
             document.getElementById('mapZoomScaleSelect').value = "1.0";
-
             initMapLayers();
             playbackTime = 0;
             updatePlayback(0);
@@ -837,15 +721,13 @@
             if (droneMarker) map.removeLayer(droneMarker);
 
             const flownColor = document.getElementById('flownColorPicker').value;
-
             flownPolyline = L.polyline([], { color: flownColor, weight: 4, opacity: 0.9 }).addTo(map);
 
             const startPt = trackPoints[0];
             const droneColor = document.getElementById('droneColorPicker').value;
-            
             const arrowIcon = L.divIcon({
                 className: 'drone-arrow-icon',
-                html: `<div id="droneArrowEl" style="transform: rotate(0deg); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));">
+                html: `<div id="droneArrowEl" style="transform: rotate(0deg); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6);">
                     <svg viewBox="0 0 24 24" width="26" height="26" fill="${droneColor}">
                         <path d="M12 2L4.5 20.29l0.71 0.71L12 18l6.79 3 0.71-0.71z"/>
                     </svg>
@@ -862,35 +744,26 @@
             if (trackPoints.length === 0) return;
             const flownColor = document.getElementById('flownColorPicker').value;
             const droneColor = document.getElementById('droneColorPicker').value;
-
             if (flownPolyline) flownPolyline.setStyle({ color: flownColor });
-
             const arrowSvg = document.querySelector('#droneArrowEl svg');
-            if (arrowSvg) {
-                arrowSvg.setAttribute('fill', droneColor);
-            }
-
+            if (arrowSvg) arrowSvg.setAttribute('fill', droneColor);
             updatePlayback(playbackTime);
         }
 
         function loadSampleFlight() {
-            const centerLat = 48.8584;
-            const centerLon = 2.2945;
+            const centerLat = 48.8584, centerLon = 2.2945;
             let rawPoints = [];
-            const numPoints = 360;
-            const baseTime = Date.now();
-
+            const numPoints = 360, baseTime = Date.now();
             for (let i = 0; i < numPoints; i++) {
                 const angle = (i / numPoints) * Math.PI * 4;
                 const radius = 0.006 * (1 - i / (numPoints * 1.5));
-                const lat = centerLat + Math.sin(angle) * radius;
-                const lon = centerLon + Math.cos(angle) * radius * 1.4;
-                const ele = 90 + Math.sin(i * 0.08) * 35;
-                const time = baseTime + (i * 1000);
-
-                rawPoints.push({ lat, lon, ele, time });
+                rawPoints.push({
+                    lat: centerLat + Math.sin(angle) * radius,
+                    lon: centerLon + Math.cos(angle) * radius * 1.4,
+                    ele: 90 + Math.sin(i * 0.08) * 35,
+                    time: baseTime + (i * 1000)
+                });
             }
-
             buildTrackData(rawPoints, 'Sample_Drone_Flight.gpx');
             showToast('Sample drone flight loaded!');
         }
@@ -901,9 +774,7 @@
             const playIcon = document.getElementById('playIcon');
             if (isPlaying) {
                 playIcon.className = 'fa-solid fa-pause';
-                if (playbackTime >= totalFlightDuration) {
-                    playbackTime = 0;
-                }
+                if (playbackTime >= totalFlightDuration) playbackTime = 0;
                 lastTimestamp = performance.now();
                 animationFrameId = requestAnimationFrame(playbackLoop);
             } else {
@@ -923,12 +794,7 @@
         function setSpeed(spd) {
             playbackSpeed = spd;
             [1, 2, 5, 10].forEach(s => {
-                const btn = document.getElementById(`spd${s}`);
-                if (s === spd) {
-                    btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 text-white transition';
-                } else {
-                    btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition';
-                }
+                document.getElementById(`spd${s}`).className = s === spd ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-500 text-white transition' : 'px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition';
             });
         }
 
@@ -941,7 +807,6 @@
             if (!isPlaying) return;
             const delta = (timestamp - lastTimestamp) / 1000;
             lastTimestamp = timestamp;
-
             playbackTime += delta * playbackSpeed;
             if (playbackTime >= totalFlightDuration) {
                 playbackTime = totalFlightDuration;
@@ -950,7 +815,6 @@
                 updatePlayback(playbackTime);
                 return;
             }
-
             updatePlayback(playbackTime);
             animationFrameId = requestAnimationFrame(playbackLoop);
         }
@@ -958,20 +822,15 @@
         function interpolatePoint(timeSec) {
             if (timeSec <= 0) return trackPoints[0];
             if (timeSec >= totalFlightDuration) return trackPoints[trackPoints.length - 1];
-
             let idx = 0;
             for (let i = 0; i < trackPoints.length - 1; i++) {
                 if (trackPoints[i].timeOffset <= timeSec && trackPoints[i + 1].timeOffset >= timeSec) {
-                    idx = i;
-                    break;
+                    idx = i; break;
                 }
             }
-
-            const p1 = trackPoints[idx];
-            const p2 = trackPoints[idx + 1];
+            const p1 = trackPoints[idx], p2 = trackPoints[idx + 1];
             const tSpan = p2.timeOffset - p1.timeOffset;
             const factor = tSpan > 0 ? (timeSec - p1.timeOffset) / tSpan : 0;
-
             return {
                 lat: p1.lat + (p2.lat - p1.lat) * factor,
                 lon: p1.lon + (p2.lon - p1.lon) * factor,
@@ -984,22 +843,18 @@
 
         function updatePlayback(timeSec) {
             if (trackPoints.length === 0) return;
-
             const currPt = interpolatePoint(timeSec);
             document.getElementById('timeScrubber').value = timeSec;
             document.getElementById('currentTimeDisplay').textContent = formatTime(timeSec);
 
-            // Telemetry values with generous min-widths to fit 999 km/h and 99.00 km comfortably
             document.getElementById('hudSpeed').innerHTML = `${Math.round(currPt.speed)} <span class="text-xs font-normal text-slate-400">km/h</span>`;
             document.getElementById('hudAltitude').innerHTML = `${Math.round(currPt.ele)} <span class="text-xs font-normal text-slate-400">m</span>`;
             document.getElementById('hudTime').textContent = formatTime(timeSec);
             document.getElementById('hudDistance').innerHTML = `${currPt.cumulativeDist.toFixed(2)} <span class="text-xs font-normal text-slate-400">km</span>`;
             
-            // Distance from home: meters when <1km, km with 2 decimals when >1km
             const distHomeKm = getDistanceFromLatLonInKm(homeLocation.lat, homeLocation.lon, currPt.lat, currPt.lon);
             if (distHomeKm < 1) {
-                const distHomeM = Math.round(distHomeKm * 1000);
-                document.getElementById('hudHomeDist').innerHTML = `${distHomeM} <span class="text-xs font-normal text-slate-400">m</span>`;
+                document.getElementById('hudHomeDist').innerHTML = `${Math.round(distHomeKm * 1000)} <span class="text-xs font-normal text-slate-400">m</span>`;
             } else {
                 document.getElementById('hudHomeDist').innerHTML = `${distHomeKm.toFixed(2)} <span class="text-xs font-normal text-slate-400">km</span>`;
             }
@@ -1008,31 +863,23 @@
             map.setView([currPt.lat, currPt.lon], map.getZoom(), { animate: false });
 
             const arrowEl = document.getElementById('droneArrowEl');
-            if (arrowEl) {
-                arrowEl.style.transform = `rotate(${currPt.heading}deg)`;
-            }
+            if (arrowEl) arrowEl.style.transform = `rotate(${currPt.heading}deg)`;
 
             let splitIndex = trackPoints.findIndex(p => p.timeOffset > timeSec);
             if (splitIndex === -1) splitIndex = trackPoints.length;
-
             const flownPts = trackPoints.slice(0, splitIndex).map(p => [p.lat, p.lon]);
             flownPts.push([currPt.lat, currPt.lon]);
             flownPolyline.setLatLngs(flownPts);
         }
 
-        // --- Accelerated Non-Realtime GPU Video Export Modal Suite ---
+        // --- MAPANIMATOR-STYLE DIRECT CANVAS RENDERING ENGINE ---
         async function startExport() {
             if (trackPoints.length === 0 || isExporting) return;
             isExporting = true;
             exportCancelRequested = false;
-
             if (isPlaying) togglePlay();
 
-            // Enable GPU export mode to strip slow CPU blur filters
-            document.documentElement.classList.add('gpu-exporting');
             document.body.classList.add('pointer-events-none');
-
-            // Show export modal window
             const modal = document.getElementById('exportModal');
             modal.classList.remove('hidden');
             modal.classList.add('pointer-events-auto');
@@ -1064,9 +911,7 @@
 
             const stream = exportCanvas.captureStream(fps);
             let mimeType = 'video/webm;codecs=vp9';
-            if (!MediaRecorder.isTypeSupported(mimeType)) {
-                mimeType = 'video/webm';
-            }
+            if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
 
             try {
                 mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate });
@@ -1077,10 +922,7 @@
             }
 
             recordedChunks = [];
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) recordedChunks.push(e.data);
-            };
-
+            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
             mediaRecorder.onstop = () => {
                 if (!exportCancelRequested) {
                     completeBanner.classList.remove('hidden');
@@ -1097,7 +939,7 @@
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
-                    showToast('Video exported successfully!');
+                    showToast('Video exported successfully via Direct GPU Engine!');
                 } else {
                     cleanupExport();
                 }
@@ -1110,32 +952,50 @@
             const previewEl = document.getElementById('previewWrapper');
             const startTime = performance.now();
 
+            console.group('⚡ Direct Canvas GPU Export Started');
+
             for (let currentFrame = 0; currentFrame < totalFrames; currentFrame++) {
                 if (exportCancelRequested) break;
                 const t = currentFrame * frameDuration;
                 if (t > totalFlightDuration) break;
 
+                // 1. Update map view & DOM telemetry widgets instantly
                 updatePlayback(t);
 
+                // 2. Direct DOM-to-Canvas Snapshotting without heavy layout tree cloning
+                // We draw the preview element container directly using native canvas drawImage via SVG Blob
                 try {
-                    const snapshot = await html2canvas(previewEl, {
-                        scale: res / previewEl.offsetWidth,
-                        useCORS: true,
-                        logging: false,
-                        backgroundColor: '#0f172a',
-                        removeContainer: true
-                    });
-                    
-                    exportCtx.clearRect(0, 0, res, res);
-                    exportCtx.drawImage(snapshot, 0, 0, res, res);
+                    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="${previewEl.offsetWidth}" height="${previewEl.offsetHeight}">
+                        <foreignObject width="100%" height="100%">
+                            <div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;">
+                                ${new XMLSerializer().serializeToString(previewEl)}
+                            </div>
+                        </foreignObject>
+                    </svg>`;
 
-                    // Update live preview inside the export modal window
-                    liveCanvas.width = snapshot.width;
-                    liveCanvas.height = snapshot.height;
-                    liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
-                    liveCtx.drawImage(snapshot, 0, 0);
+                    const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+                    const URL = window.URL || window.webkitURL || window;
+                    const blobURL = URL.createObjectURL(blob);
+                    
+                    await new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            exportCtx.clearRect(0, 0, res, res);
+                            exportCtx.drawImage(img, 0, 0, previewEl.offsetWidth, previewEl.offsetHeight, 0, 0, res, res);
+
+                            liveCanvas.width = res;
+                            liveCanvas.height = res;
+                            liveCtx.clearRect(0, 0, res, res);
+                            liveCtx.drawImage(exportCtx.canvas, 0, 0, res, res);
+
+                            URL.revokeObjectURL(blobURL);
+                            resolve();
+                        };
+                        img.onerror = (err) => { URL.revokeObjectURL(blobURL); reject(err); };
+                        img.src = blobURL;
+                    });
                 } catch (err) {
-                    console.error('Snapshot frame error:', err);
+                    console.error('Direct canvas render frame error:', err);
                 }
 
                 const percent = Math.round(((currentFrame + 1) / totalFrames) * 100);
@@ -1143,13 +1003,12 @@
                 percentageEl.textContent = `${percent}%`;
                 framesText.textContent = `Frame ${currentFrame + 1} / ${totalFrames}`;
 
-                // Calculate ETA
                 const elapsedMs = performance.now() - startTime;
-                const avgTimePerFrame = elapsedMs / (currentFrame + 1);
-                const remainingFrames = totalFrames - (currentFrame + 1);
-                const etaSec = Math.ceil((remainingFrames * avgTimePerFrame) / 1000);
+                const etaSec = Math.ceil((((totalFrames - (currentFrame + 1)) * (elapsedMs / (currentFrame + 1)))) / 1000);
                 etaText.textContent = `Estimated time remaining: ${etaSec}s`;
             }
+
+            console.groupEnd();
 
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop();
@@ -1158,25 +1017,19 @@
 
         function cancelExport() {
             exportCancelRequested = true;
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-            }
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
             showToast('Video export cancelled.');
             cleanupExport();
         }
 
-        function closeExportModal() {
-            cleanupExport();
-        }
+        function closeExportModal() { cleanupExport(); }
 
         function cleanupExport() {
             isExporting = false;
-            document.documentElement.classList.remove('gpu-exporting');
             document.body.classList.remove('pointer-events-none');
             const modal = document.getElementById('exportModal');
             modal.classList.add('hidden');
             modal.classList.remove('pointer-events-auto');
-
             const abortBtn = document.getElementById('exportModalAbortBtn');
             abortBtn.textContent = 'Abort Export';
             abortBtn.onclick = cancelExport;
@@ -1185,21 +1038,15 @@
         }
 
         function formatTime(sec) {
-            const mins = Math.floor(sec / 60);
-            const secs = Math.floor(sec % 60);
+            const mins = Math.floor(sec / 60), secs = Math.floor(sec % 60);
             return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
         function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
             const R = 6371;
-            const dLat = deg2rad(lat2 - lat1);
-            const dLon = deg2rad(lon2 - lon1);
-            const a =
-                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
+            const dLat = deg2rad(lat2 - lat1), dLon = deg2rad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         }
 
         function deg2rad(deg) { return deg * (Math.PI / 180); }
@@ -1207,11 +1054,8 @@
         function calculateHeading(lat1, lon1, lat2, lon2) {
             const dLon = deg2rad(lon2 - lon1);
             const y = Math.sin(dLon) * Math.cos(deg2rad(lat2));
-            const x = Math.cos(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) -
-                      Math.sin(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.cos(dLon);
-            let brng = Math.atan2(y, x);
-            brng = brng * (180 / Math.PI);
-            return (brng + 360) % 360;
+            const x = Math.cos(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) - Math.sin(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.cos(dLon);
+            return (Math.atan2(y, x) * (180 / Math.PI) + 360) % 360;
         }
 
         function showToast(message) {
